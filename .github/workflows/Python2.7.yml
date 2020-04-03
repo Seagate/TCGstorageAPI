@@ -6,9 +6,11 @@ name: CI
 # events but only for the master branch
 on:
   push:
-    branches: Python2.7-CentOS
+    branches: 
+    - Python2.7-CentOS
   pull_request:
-    branches: Python2.7-CentOS
+    branches: 
+    - Python2.7-CentOS
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:

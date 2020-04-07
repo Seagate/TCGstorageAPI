@@ -1,0 +1,185 @@
+//-----------------------------------------------------------------------------
+// Do NOT modify or remove this copyright
+//
+// Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// ****************************************************************************
+//
+// \file parser.ypp
+// \brief YACC parser to decode received TCG packets
+//
+//-----------------------------------------------------------------------------
+%skeleton "lalr1.cc" /* -*- C++ -*- */
+%require "3.0"
+%defines
+%define parser_class_name { Parser }
+
+%define api.token.constructor
+%define api.value.type variant
+%define parse.assert
+%define api.namespace { Tcg }
+%define parse.error verbose
+
+%code requires
+{
+
+//#pragma GCC diagnostic warning "-Wunused-local-typedefs"
+#include <boost/python.hpp>
+#include <boost/python/object.hpp>
+#include <boost/python/dict.hpp>
+#include <boost/python/tuple.hpp>
+#include <boost/python/list.hpp>
+#include <boost/python/str.hpp>
+#include <boost/python/long.hpp>
+#include <boost/python/tuple.hpp>
+#include <string>
+
+using boost::python::object;
+using boost::python::dict;
+using boost::python::list;
+using boost::python::long_;
+using boost::python::str;
+using boost::python::extract;
+
+namespace Tcg {
+	class Parser;
+	class Scanner;
+	class ParserValue;
+	class Results;
+	class Session;
+}
+
+#ifndef YY_NULLPTR
+#  if defined __cplusplus && 201103L <= __cplusplus
+#   define YY_NULLPTR nullptr
+#  else
+#   define YY_NULLPTR 0
+#  endif
+#endif
+}
+
+%code top
+{
+    #include "TcgScanner.h"
+    #include "Tcg.h"
+
+    static Tcg::Parser::symbol_type yylex(Tcg::Scanner &scanner) {
+	    return scanner.get_next_token();
+    }
+
+	Tcg::Uid UidFromToken(boost::python::object & val)
+	{
+		std::string value = extract<std::string>(val);
+		const uint8_t * ptr = (const uint8_t *) value.c_str();
+		size_t len = value.length();
+		Tcg::Uid uid = 0;
+		for (unsigned i = 0; i < len; i++)
+			uid = (uid << 8) + ptr[i];
+		return uid;
+	}
+
+}
+%lex-param { Scanner &scanner }
+%parse-param { Scanner &scanner }
+%parse-param { Results &results }
+%parse-param { Session * session }
+
+%define api.token.prefix {Token}
+
+%token<long_> AtomInt
+%token<object> AtomString AtomStringC
+%token StartList EndList StartName EndName Call EndData EndSession
+%token StartTransaction EndTransaction EmptyAtom END
+
+%type<object>	atom;
+%type<object> atom_string;
+%type<object>	value;
+%type<list> values;
+%type<object> list;
+
+%%
+
+start: completions opt_end_session END
+	{YYACCEPT;}
+	| EndSession
+	{ session->endSessionAck(); YYACCEPT; }
+
+completion: call_or_list EndData results
+
+completions: completion
+    | completions completion
+
+call_or_list: /* empty */
+    | call
+	| list
+	{ results.setReturnedValues($1);}
+
+value: atom
+	{$$=$1;}
+	| list
+	{$$=$1;}
+	| StartName atom_string value EndName
+	{$$ = make_tuple($2, $3);}
+
+	| StartName AtomInt value EndName
+	{$$ = make_tuple($2, $3);}
+
+values: /* empty */
+	{ $$ == list();	}
+	| values value
+	{ $$ = $1; $$.append($2);}
+
+atom_string: AtomString
+	{$$ = $1;}
+	| AtomStringC atom_string
+	{ $1 += $2;	$$ = $1;}
+
+atom: AtomInt
+	{$$ = $1;}
+    | atom_string
+	{$$ = $1;}
+	| EmptyAtom
+	{$$ = object();}
+
+list: StartList values EndList
+	{
+	results.convertNamedList($2, $$);
+	}
+
+call: Call AtomString AtomString list
+	{
+	Tcg::Uid		objectId = UidFromToken($2);
+	Tcg::Uid		methodId = UidFromToken($3);
+	list	   parms = extract<list>($4);
+	//std::string dbg = extract<std::string>(str($4));
+	//YYCDEBUG << "XXXX call: " << std::hex << objectId << ':' << methodId << std::dec << ' ' << dbg << std::endl;
+	session->callBack(objectId, methodId, parms);
+	}
+
+results: StartList AtomInt AtomInt AtomInt EndList
+	{ results.setResultCode($2); }
+
+opt_end_session: /* empty */
+	| EndSession
+	{ session->endSessionAck(); }
+%%
+
+void Tcg::Parser::error(const std::string& error)
+{
+	session->getLogger().debug("TcgParser error - %s at %x:\n%s",
+		error.c_str(), scanner.getPos(),
+		scanner.getBuffer().c_str());
+	throw Tcg::ParserAbort(Tcg::UNEXPECTED_RESULTS);
+}

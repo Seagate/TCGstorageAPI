@@ -1,0 +1,11 @@
+include TCGstorageAPI/*.py
+include pysed/*.cpp
+include pysed/*.h*
+include pysed/parser.ypp
+include opensea-transport/include/*.h*
+include opensea-transport/include/vendor/*/*.h*
+include opensea-common/include/*.h*
+include opensea-operations/include/*.h*
+include opensea-transport/Make/gcc/lib/*.a
+include opensea-operations/Make/gcc/lib/*.a
+include opensea-common/Make/gcc/lib/*.a

@@ -1,15 +1,17 @@
 # TCGstorageAPI
 
-## API that implements TCG Storage operations for SATA and SAS drives.
+## API for TCG Storage operations on SATA and SAS Self-Encrypting Drives
 
-### Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
+##### Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
 
-BINARIES and SOURCE CODE files of the TCGstorageAPI open source project are made available under the [Apache License 2.0 ](https://opensource.org/licenses/Apache-2.0).  
-It uses the openSeaChest project, its repository is maintained at https://github.com/Seagate/TCGstorageAPI.
+BINARIES and SOURCE CODE files of the TCGstorageAPI open source project are made available under the [Apache License 2.0](https://opensource.org/licenses/Apache-2.0).  
 
-TCGstorageAPI implements the TCG Storage protocol for configuring SEDs. It supports a number of operations, such as taking ownership of the drive, setting authentication credentials, configuring bands (TCG Ranges), locking and unlocking of bands, etc. This API assumes the use of an external KeyManager to securely store the authentication credentials, but does not support any key managers.
+It uses the openSeaChest project, its repository is maintained at https://github.com/Seagate/openSeaChest.
+
+TCGstorageAPI implements the TCG Storage Enterprise SSC and Opal SSC protocols for configuring SEDs. It supports a number of operations, such as taking ownership of the drive, setting authentication credentials, configuring bands (TCG Ranges), locking and unlocking of bands, etc. The API should be used in combination with Key Manager to securely store drive authentication credentials.  
 
 ### Required libraries
+
 This API depends on the below libraries for transport of TCG payloads to and from the device.
 
 **opensea-common**      - Operating System common operations, not specific to
@@ -29,6 +31,7 @@ This API depends on the below libraries for transport of TCG payloads to and fro
                       opensea-transport.
 
 ### Source code access
+
 Depending on your git version & client you can use either of the following commands to clone the repository.
 
 `git clone --recurse-submodules https://github.com/Seagate/TCGstorageAPI.git`

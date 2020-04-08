@@ -14,7 +14,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Build 
+      - name: Checkout git submodules
+        run: git submodule update --init --recursive 
+      - name: Install dependencies 
         run: |
           sudo apt-get update
           sudo apt install python3

@@ -41,8 +41,6 @@
 #include "Tls.h"
 #endif
 #include <stdio.h>
-#include "../opensea-transport/include/common_public.h"
-#include "../opensea-operations/include/drive_info.h"
 
 using namespace Tcg;
 using namespace boost::python;

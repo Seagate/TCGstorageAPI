@@ -24,7 +24,7 @@ jobs:
           sudo apt-get install libboost-all-dev
       - name: Install python requirement packages
         run: |
-          cd tcgstorageapi
+          sudo apt-get install python3-setuptools
           pip3 install --no-cache-dir -r requirements.txt
       - name: Build opensea
         run: python3 setup.py opensea

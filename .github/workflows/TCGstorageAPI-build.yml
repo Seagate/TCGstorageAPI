@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-    # Job name is Greeting
     name: TCGstorageAPI_build
     # This job runs on Linux
     runs-on: ubuntu-18.04

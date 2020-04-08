@@ -16,12 +16,12 @@ jobs:
         uses: actions/checkout@v2
       - name: Build 
         run: |
-          apt-get update
-          apt install python3
-          apt install python3-pip
-          apt-get install -y --no-install-recommends python3-all python3-all-dev
-          apt-get install libgnutls28-dev
-          apt-get install libboost-all-dev
+          sudo apt-get update
+          sudo apt install python3
+          sudo apt install python3-pip
+          sudo apt-get install -y --no-install-recommends python3-all python3-all-dev
+          sudo apt-get install libgnutls28-dev
+          sudo apt-get install libboost-all-dev
           pip3 install --no-cache-dir -r requirements.txt
       - name: Build opensea
         run: python3 setup.py opensea

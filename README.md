@@ -1,8 +1,11 @@
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 # TCGstorageAPI
 
 ## API for TCG Storage operations on SAS and SATA Self-Encrypting Drives
 
 ##### Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
+
+![](https://github.com/Seagate/TCGstorageAPI/workflows/TCGstorageAPI%20build/badge.svg?branch=Python2.7)
 
 BINARIES and SOURCE CODE files of the TCGstorageAPI open source project are made available under the [Apache License 2.0](https://opensource.org/licenses/Apache-2.0).  
 

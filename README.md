@@ -1,6 +1,6 @@
 # TCGstorageAPI
 
-## API for TCG Storage operations on SATA and SAS Self-Encrypting Drives
+## API for TCG Storage operations on SAS and SATA Self-Encrypting Drives
 
 ##### Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
 
@@ -107,6 +107,10 @@ Install gnutls:
 Install Boost-Python:
 
 `sudo apt-get install libboost-all-dev`
+
+Install Python3 setup tools:
+
+`sudo apt-get install python3-setuptools`
 
 Change directory to tcgstorageapi and download the package dependencies:
 

@@ -7,14 +7,15 @@ on:
 
 jobs:
   build:
-    # Job name is Greeting
     name: TCGstorageAPI_build
     # This job runs on Linux
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Build 
+      - name: Checkout git submodules
+        run: git submodule update --init --recursive 
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt install python2.7-minimal

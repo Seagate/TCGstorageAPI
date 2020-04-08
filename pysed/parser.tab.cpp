@@ -21,6 +21,7 @@
 // \brief Implements the Tcg::parser class.
 //
 //-----------------------------------------------------------------------------
+#line 64 "parser.ypp" // lalr1.cc:397
 
     #include "TcgScanner.h"
     #include "Tcg.h"
@@ -40,7 +41,12 @@
 		return uid;
 	}
 
+
+#line 55 "parser.tab.cpp" // lalr1.cc:397
+
 // First part of user declarations.
+
+#line 60 "parser.tab.cpp" // lalr1.cc:404
 
 # ifndef YY_NULLPTR
 #  if defined __cplusplus && 201103L <= __cplusplus
@@ -54,6 +60,9 @@
 
 // User implementation prologue.
 
+#line 74 "parser.tab.cpp" // lalr1.cc:412
+
+
 #ifndef YY_
 # if defined YYENABLE_NLS && YYENABLE_NLS
 #  if ENABLE_NLS
@@ -65,6 +74,8 @@
 #  define YY_(msgid) msgid
 # endif
 #endif
+
+
 
 // Suppress unused-variable warnings by "using" E.
 #define YYUSE(E) ((void) (E))
@@ -114,7 +125,9 @@
 #define YYERROR         goto yyerrorlab
 #define YYRECOVERING()  (!!yyerrstatus_)
 
+#line 9 "parser.ypp" // lalr1.cc:479
 namespace  Tcg  {
+#line 141 "parser.tab.cpp" // lalr1.cc:479
 
   /* Return YYSTR after stripping away unnecessary quotes and
      backslashes, so that it's suitable for yyerror.  The heuristic is
@@ -153,6 +166,7 @@ namespace  Tcg  {
     return yystr;
   }
 
+
   /// Build a parser object.
    Parser :: Parser  (Scanner &scanner_yyarg, Results &results_yyarg, Session * session_yyarg)
     :
@@ -172,6 +186,8 @@ namespace  Tcg  {
   /*---------------.
   | Symbol types.  |
   `---------------*/
+
+
 
   // by_state.
   inline
@@ -218,6 +234,7 @@ namespace  Tcg  {
    Parser ::stack_symbol_type::stack_symbol_type ()
   {}
 
+
   inline
    Parser ::stack_symbol_type::stack_symbol_type (state_type s, symbol_type& that)
     : super_type (s)
@@ -232,13 +249,16 @@ namespace  Tcg  {
         value.move< long_ > (that.value);
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         value.move< object > (that.value);
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        value.move< str > (that.value);
         break;
 
       default:
@@ -264,13 +284,16 @@ namespace  Tcg  {
         value.copy< long_ > (that.value);
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         value.copy< object > (that.value);
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        value.copy< str > (that.value);
         break;
 
       default:
@@ -279,6 +302,7 @@ namespace  Tcg  {
 
     return *this;
   }
+
 
   template <typename Base>
   inline
@@ -503,13 +527,16 @@ namespace  Tcg  {
         yylhs.value.build< long_ > ();
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         yylhs.value.build< object > ();
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        yylhs.value.build< str > ();
         break;
 
       default:
@@ -525,124 +552,124 @@ namespace  Tcg  {
           switch (yyn)
             {
   case 2:
-
+#line 105 "parser.ypp" // lalr1.cc:859
     {YYACCEPT;}
-
+#line 568 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 3:
-
+#line 107 "parser.ypp" // lalr1.cc:859
     { session->endSessionAck(); YYACCEPT; }
-
+#line 574 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 9:
-
+#line 117 "parser.ypp" // lalr1.cc:859
     { results.setReturnedValues(yystack_[0].value.as< object > ());}
-
+#line 580 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 10:
-
+#line 120 "parser.ypp" // lalr1.cc:859
     {yylhs.value.as< object > ()=yystack_[0].value.as< object > ();}
-
+#line 586 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 11:
-
+#line 122 "parser.ypp" // lalr1.cc:859
     {yylhs.value.as< object > ()=yystack_[0].value.as< object > ();}
-
+#line 592 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 12:
-
-    {yylhs.value.as< object > () = make_tuple(yystack_[2].value.as< object > (), yystack_[1].value.as< object > ());}
-
+#line 124 "parser.ypp" // lalr1.cc:859
+    {yylhs.value.as< object > () = make_tuple(yystack_[2].value.as< str > (), yystack_[1].value.as< object > ());}
+#line 598 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 13:
-
+#line 126 "parser.ypp" // lalr1.cc:859
     {yylhs.value.as< object > () = make_tuple(yystack_[2].value.as< long_ > (), yystack_[1].value.as< object > ());}
-
+#line 604 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 14:
-
+#line 129 "parser.ypp" // lalr1.cc:859
     { yylhs.value.as< list > () == list();	}
-
+#line 610 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 15:
-
+#line 131 "parser.ypp" // lalr1.cc:859
     { yylhs.value.as< list > () = yystack_[1].value.as< list > (); yylhs.value.as< list > ().append(yystack_[0].value.as< object > ());}
-
+#line 616 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 16:
-
-    {yylhs.value.as< object > () = yystack_[0].value.as< object > ();}
-
+#line 134 "parser.ypp" // lalr1.cc:859
+    {yylhs.value.as< str > () = yystack_[0].value.as< str > ();}
+#line 622 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 17:
-
-    { yystack_[1].value.as< object > () += yystack_[0].value.as< object > ();	yylhs.value.as< object > () = yystack_[1].value.as< object > ();}
-
+#line 136 "parser.ypp" // lalr1.cc:859
+    { yystack_[1].value.as< str > () += yystack_[0].value.as< str > ();	yylhs.value.as< str > () = yystack_[1].value.as< str > ();}
+#line 628 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 18:
-
+#line 139 "parser.ypp" // lalr1.cc:859
     {yylhs.value.as< object > () = yystack_[0].value.as< long_ > ();}
-
+#line 634 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 19:
-
-    {yylhs.value.as< object > () = yystack_[0].value.as< object > ();}
-
+#line 141 "parser.ypp" // lalr1.cc:859
+    {yylhs.value.as< object > () = yystack_[0].value.as< str > ();}
+#line 640 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 20:
-
+#line 143 "parser.ypp" // lalr1.cc:859
     {yylhs.value.as< object > () = object();}
-
+#line 646 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 21:
-
+#line 146 "parser.ypp" // lalr1.cc:859
     {
 	results.convertNamedList(yystack_[1].value.as< list > (), yylhs.value.as< object > ());
 	}
-
+#line 654 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 22:
-
+#line 151 "parser.ypp" // lalr1.cc:859
     {
-	Tcg::Uid		objectId = UidFromToken(yystack_[2].value.as< object > ());
-	Tcg::Uid		methodId = UidFromToken(yystack_[1].value.as< object > ());
+	Tcg::Uid		objectId = UidFromToken(yystack_[2].value.as< str > ());
+	Tcg::Uid		methodId = UidFromToken(yystack_[1].value.as< str > ());
 	list	   parms = extract<list>(yystack_[0].value.as< object > ());
 	//std::string dbg = extract<std::string>(str($4));
 	//YYCDEBUG << "XXXX call: " << std::hex << objectId << ':' << methodId << std::dec << ' ' << dbg << std::endl;
 	session->callBack(objectId, methodId, parms);
 	}
-
+#line 667 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 23:
-
+#line 161 "parser.ypp" // lalr1.cc:859
     { results.setResultCode(yystack_[3].value.as< long_ > ()); }
-
+#line 673 "parser.tab.cpp" // lalr1.cc:859
     break;
 
   case 25:
-
+#line 165 "parser.ypp" // lalr1.cc:859
     { session->endSessionAck(); }
-
+#line 679 "parser.tab.cpp" // lalr1.cc:859
     break;
 
 
-
+#line 683 "parser.tab.cpp" // lalr1.cc:859
             default:
               break;
             }
@@ -996,8 +1023,8 @@ namespace  Tcg  {
    Parser ::yyrline_[] =
   {
        0,   104,   104,   106,   109,   111,   112,   114,   115,   116,
-     119,   121,   123,   126,   130,   131,   134,   136,   139,   141,
-     143,   146,   151,   161,   164,   165
+     119,   121,   123,   125,   129,   130,   133,   135,   138,   140,
+     142,   145,   150,   160,   163,   164
   };
 
   // Print the state stack on the debug stream.
@@ -1029,7 +1056,12 @@ namespace  Tcg  {
   }
 #endif // YYDEBUG
 
+
+#line 9 "parser.ypp" // lalr1.cc:1167
 } //  Tcg
+#line 1073 "parser.tab.cpp" // lalr1.cc:1167
+#line 166 "parser.ypp" // lalr1.cc:1168
+
 
 void Tcg::Parser::error(const std::string& error)
 {

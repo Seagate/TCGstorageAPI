@@ -26,9 +26,9 @@
 
 # include <vector>
 
-
+#line 9 "parser.ypp" // stack.hh:132
 namespace  Tcg  {
-
+#line 46 "stack.hh" // stack.hh:132
   template <class T, class S = std::vector<T> >
   class stack
   {
@@ -136,8 +136,8 @@ namespace  Tcg  {
     unsigned int range_;
   };
 
-
+#line 9 "parser.ypp" // stack.hh:132
 } //  Tcg
-
+#line 156 "stack.hh" // stack.hh:132
 
 #endif // !YY_YY_STACK_HH_INCLUDED

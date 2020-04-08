@@ -40,9 +40,6 @@
 #if !defined(_WINDOWS)
 #include "Tls.h"
 #endif
-#include <stdio.h>
-#include "../opensea-transport/include/common_public.h"
-#include "../opensea-operations/include/drive_info.h"
 
 using namespace Tcg;
 using namespace boost::python;
@@ -109,14 +106,14 @@ unsigned CipherSuites::Value(object name) {
 struct beint32_to_python {
 	static PyObject * convert(beint32_t const & s) {
 		const uint32_t v = s;
-		return PyLong_FromLong(v);
+		return PyInt_FromLong(v);
 	}
 };
 
 struct beint64_to_python {
 	static PyObject * convert(beint64_t const & s) {
 		const long v = static_cast<long>(s);
-		return PyLong_FromLong(v);
+		return PyInt_FromLong(v);
 	}
 };
 
@@ -188,8 +185,8 @@ Sed::Sed(string drive, object uidTablesFn, object _cipherSuites, dict kwargs) :
 		} catch (TcgError & e) {
 			if (retry == 0)
 				continue;
-			//logger.error("Error initializing device %s: %s", devname.c_str(),
-			//		e.what());
+			logger.error("Error initializing device %s: %s", devname.c_str(),
+					e.what());
 			//PyErr_SetString(PyExc_RuntimeError, e.what());
 			return;
 		}
@@ -486,6 +483,7 @@ static const char * invokeDocs =
 				"    msg        - Possible error description.\n"
 				"    None       - Tuple filler\n";
 tuple Sed::invoke(tuple argv, dict kwargs) {
+
 	Sed * self = extract<Sed *>(argv[0]);
 	try {
 		Uid obId = self->objectIds(argv[1]);
@@ -699,8 +697,6 @@ bool Sed::getDebugPackets() {
 void Sed::setDebugPackets(bool val) {
 	Session::dumpPackets = val;
 }
-
-
 
 static const char * maxlbaDocs = "Retrieve drive's maximum addressable LBA";
 static const char * wwnDocs = "Retrieve drive's world wide name.";

@@ -132,8 +132,8 @@ Parser::symbol_type Scanner::nextToken()
 		}
 	}
 	if (s)
-		Parser::make_AtomStringC(boost::python::object(boost::python::handle<>(PyBytes_FromStringAndSize((char *) atomData, atomLength))));
-	return Parser::make_AtomString(boost::python::object(boost::python::handle<>(PyBytes_FromStringAndSize((char *) atomData, atomLength))));
+		Parser::make_AtomStringC(str((char *) atomData, atomLength));
+	return Parser::make_AtomString(str((char *) atomData, atomLength));
 }
 
 std::string Scanner::getBuffer()
@@ -175,7 +175,7 @@ bool Results::findObject(const uint64_t name, object & ob)
 
 bool Results::findObject(const char * name, object & ob)
 {
-	object index(boost::python::handle<>(PyBytes_FromString(name)));
+	str	index(name);
 	if (returnedNamedValues.has_key(index))
 	{
 		ob = returnedNamedValues.get(index);
@@ -218,21 +218,9 @@ void Results::setReturnedValues(object & val)
 const char * Results::namedString(const char * name)
 {
 	object ob;
-		if (findObject(name, ob))
-	        {
-	            PyObject* v = ob.ptr();
-
-	            if (PyBytes_Check(v)) {
-	              //cout << "Object is PyBytes type\n";
-	              char *pbuf = PyBytes_AsString(v);
-	              Py_ssize_t len = PyBytes_Size(v);
-	              //cout << "Value is '" << pbuf << "' length " << (long) len << "\n";
-	              return pbuf;
-	             }
-	             else
-	               return extract<const char *>(ob);
-	        }
-		return NULL;
+	if (findObject(name, ob))
+		return extract<const char *>(ob);
+	return NULL;
 }
 
 // retrieve named string result from return values
@@ -240,20 +228,7 @@ const char * Results::namedString(const uint64_t name)
 {
 	object ob;
 	if (findObject(name, ob))
-        {
-
-            PyObject* v = ob.ptr();
-    
-            if (PyBytes_Check(v)) {
-              //cout << "Object is PyBytes type\n";
-              char *pbuf = PyBytes_AsString(v);
-              Py_ssize_t len = PyBytes_Size(v);
-              //cout << "Value is '" << pbuf << "' length " << (long) len << "\n";
-              return pbuf;
-             }
-             else
-               return extract<const char *>(ob);
-        }
+		return extract<const char *>(ob);
 	return NULL;
 }
 

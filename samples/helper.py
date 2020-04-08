@@ -23,7 +23,7 @@
 #-----------------------------------------------------------------------------
 import re
 import string
-import urllib.request, urllib.error, urllib.parse
+import urllib2
 import os
 from ssl import DER_cert_to_PEM_cert
 from cryptography.hazmat.backends import default_backend
@@ -59,7 +59,7 @@ class VerifyIdentity(object):
         c_tdci_cert_binary = self.read_der_cert(c_tdci_cert_filename)
         c_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(c_tdci_cert_binary))
 
-        url_data = urllib.request.urlopen("http://drivetrust.seagate.com/cert/DTRoot.cer")
+        url_data = urllib2.urlopen("http://drivetrust.seagate.com/cert/DTRoot.cer")
         root_cert_binary = url_data.read()
         root_cert_PEM = DER_cert_to_PEM_cert(bytes(root_cert_binary))
 
@@ -67,7 +67,7 @@ class VerifyIdentity(object):
         verified = self.verify_chain_of_trust(driveCert_PEM, trusted_certs)
 
         if verified:
-            print ("Drive Certificate chain verified from drive to root")
+            print "Drive Certificate chain verified from drive to root"
         else:
             raise Exception("ERROR: Issue verifying Certificate chain, do NOT trust")
 
@@ -86,13 +86,13 @@ class VerifyIdentity(object):
         public_key = x509.get_pubkey()
         try:
             crypto.verify(x509,signature,original_string,'sha256')
-            print("Drive signature verified successfully")
+            print "Drive signature verified successfully"
             return True
         except crypto.Error:
-            print("Failed to verify signature of the drive")
+            print "Failed to verify signature of the drive"
             return False
         except:
-            print("Failed to perform signature validation")
+            print "Failed to perform signature validation"
             return False
 
     @staticmethod
@@ -100,7 +100,7 @@ class VerifyIdentity(object):
         '''
         Method used to find the parent certificates from the drive certificate that has been extracted.
         It looks for the issuer's URI line to download the certificate from drivetrust.seagate.com
-        If it does not pull from the trusted website then it fails to add the certificate in.
+        If it does not pull from the trusted Seagate website then it fails to add the certificate in.
 
         NOTE: It currently does not verify the issuer and subject chain.
         That is TBD and the proper way to do it. Still looking into how to implement.
@@ -115,11 +115,11 @@ class VerifyIdentity(object):
                 for element in split_ext:
                     if "access_location" in element:
                         value_str = re.search(r'\((.*?)\)', element).group(1)
-                        web_url_str_1 = str.replace(value_str, "value=", '')
+                        web_url_str_1 = string.replace(value_str, "value=", '')
                         # Newer version of pyOpenSSL adds a u' to the http string in value=
                         # Need to check for it and strip it out along with ending single quote
-                        web_url_str_2 = str.replace(web_url_str_1, "u\'", '')
-                        web_url_str = str.replace(web_url_str_2, "\'", '')
+                        web_url_str_2 = string.replace(web_url_str_1, "u\'", '')
+                        web_url_str = string.replace(web_url_str_2, "\'", '')
 
                         # Test to make sure the web_url_str is trusted
                         if "drivetrust.seagate.com" in web_url_str:
@@ -133,7 +133,7 @@ class VerifyIdentity(object):
                             attempts = 0
                             while attempts < 3:
                                 try:
-                                    response = urllib.request.urlopen(web_url_str, timeout=5)
+                                    response = urllib2.urlopen(web_url_str, timeout=5)
                                     content = response.read()
                                     CERT__FILENAME = os.path.join(cert_filename)
                                     f = open(CERT__FILENAME, 'wb')
@@ -143,18 +143,18 @@ class VerifyIdentity(object):
                                     # Returning the filename for the certificate file that was downloaded.
                                     return cert_filename
 
-                                except urllib.error.URLError as e:
+                                except urllib2.URLError as e:
                                     attempts += 1
-                                    print(e.args)
+                                    print e.args
                         else:
-                            # The URL listed is not a trusted url.
-                            print("ERROR: The URL provided by Certificate is not a trusted Website")
+                            # The URL listed is not a trusted seagate url.
+                            print "ERROR: The URL provided by Certificate is not a trusted Seagate Website"
                             break
             else:
                 pass
 
         # The URL for the drive certificate parent was not found if we get this far...
-        print("ERROR: The URL for the drive certificate parent was not found or is not trusted")
+        print "ERROR: The URL for the drive certificate parent was not found or is not trusted"
 
     @staticmethod
     def read_der_cert(filename):
@@ -166,7 +166,7 @@ class VerifyIdentity(object):
         try:
             der_cert = f.read()
         except:
-            print("Error opening certificate file: ", filename)
+            print "Error opening certificate file: ", filename
         finally:
             f.close()
 

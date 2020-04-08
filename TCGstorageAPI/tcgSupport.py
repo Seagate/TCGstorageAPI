@@ -19,7 +19,7 @@
 # \file tcgSupport.py
 # \brief Supports the implementation of TCG API
 #-----------------------------------------------------------------------------
-from pickle import loads, dumps
+from cPickle import loads, dumps
 from passlib.utils.pbkdf2 import pbkdf2
 import hmac
 import hashlib
@@ -75,7 +75,7 @@ def tokens(sed):
         return []
     elif sed.SSC == 'Opalv2':
         token_values = [1,[]]
-        for key,val in list(sed.token.items()):
+        for key,val in sed.token.items():
             if key == 'LockOnReset' and "PortLocked" in sed.token or key=='Enabled' and 'CipherSuite' in sed.token:
                 index = 1
             else:
@@ -96,7 +96,6 @@ def configureTls(sed, cipherSuites):
             sed - SED data structure of the drive
             cipherSuites- List of all cipherSuites supported by the drive
         '''
-    
         sed.cipherSuite = cipherSuites[0]
         key = getPsk(sed)
         for entryId in range(4):
@@ -116,13 +115,13 @@ def getPsk(sed):
         sed - SED data structure of the drive
     '''
     try:
-        with open("psk.txt",'rb') as f:
+        with open("psk.txt") as f:
             psk = f.read()
     except IOError:
         psk = pbkdf2(hex(sed.wwn) + '7i92G*dp#' + sed.mSID, sed.random(), 6996, keylen=64)
         if psk is None:
             return None
-        with open("psk.txt", "wb") as psk_file:
+        with open("psk.txt", "w") as psk_file:
             psk_file.write(psk)
             psk_file.close()
     return psk
@@ -202,44 +201,15 @@ def fail(logger,devname,StatusCode,msg=None, op=None, status=None):
     '''
     Function invoked by tcgapi in case of failure of operations
 
-    Parameters:
+    Parameters;
         msg - Message to be logged
         op  - Operation being performed
         status - Status of the operation being performed.
     '''
     lmsg = ''
     lmsg += devname + ' '
-    if isinstance(msg, str):
+    if isinstance(msg, basestring):
         lmsg += msg + '\n'
     if op is not None:
         lmsg += 'Failed SED operation {0}: {1} '.format(op, StatusCode.values[status])
     logger.error(lmsg)
-
-def convert(data):
-    '''
-    Function invoked by tcgapi to convert bytes to string
-    
-    Parameters:
-    data - data in bytes
-    
-    Returns data as string 
-
-    '''
-    if isinstance(data, bytes):  
-        try:
-            val = data.decode()
-            if val.isprintable() == True:
-                return val
-            else:
-                return data.hex()
-        except:
-            hex_str = data.hex()
-            hex_int= int(hex_str, 16)
-            return hex(hex_int)
-    if isinstance(data, dict):   
-        return dict(map(convert, data.items()))
-    if isinstance(data, tuple):  
-        return tuple(map(convert, data))
-    if isinstance(data, list):   
-        return list(map(convert, data))
-    return data

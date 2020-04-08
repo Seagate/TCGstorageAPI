@@ -27,9 +27,8 @@ import logging.handlers
 import argparse
 import struct
 import uuid
-from TCGstorageAPI.tcgapi import PskCipherSuites
 from TCGstorageAPI.tcgapi import Sed
-from TCGstorageAPI import keymanager as keymanager
+import TCGstorageAPI.keymanager as keymanager
 import TCGstorageAPI.tcgSupport as tcgSupport
 import helper as verifyidentity
 import datetime
@@ -71,7 +70,7 @@ class Sedcfg(object):
             dev:Device handle of the drive.
         '''
 
-        os_type = {'linux2':self.linux_platform,'linux':self.linux_platform, 'win32':self.windows_platform}
+        os_type = {'linux2':self.linux_platform, 'win32':self.windows_platform}
         os_type[sys.platform](dev)
 
         logging.basicConfig(
@@ -86,7 +85,7 @@ class Sedcfg(object):
 
         # Build the SED object for the drive
         self.sed = Sed(dev, callbacks=self)
-        for key, val in list(self.cred_table.items()):
+        for key, val in self.cred_table.items():
             self.keymanager.setKey(key, val)
 
         self.BandLayout = sedbandlayout()
@@ -123,8 +122,8 @@ class Sedcfg(object):
         # Extract PD from string and take the number value to be used and extrapolate into \\.\PhysicalDrive#
 
         if ("PD" not in devname):
-            print("Please pass drive in as PD<drive number>")
-            print("Example: Disk 1 is PD1")
+            print "Please pass drive in as PD<drive number>"
+            print "Example: Disk 1 is PD1"
             exit (1)
 
         drive_number = devname[-1:]
@@ -138,24 +137,24 @@ class Sedcfg(object):
         '''
 
         if self.BandLayout.authority[1] == 'Admin1'and self.sed.checkPIN(self.BandLayout.authority[0], self.sed.mSID) == True:
-            print("Please perform operation changecreds before Tls enable")
+            print "Please perform operation changecreds before Tls enable"
             return False
 
         auth = (self.BandLayout.authority[0], self.BandLayout.authority[1])
         key = tcgSupport.getPsk(self.sed)
         if key == None:
-            print("Pre-Shared Key not generated")
+            print "Pre-Shared Key not generated"
             return False
         toUse = self.sed.getPskEntry(0)
 
         for entryId in range(4):
             psk = self.sed.getPskEntry(entryId)
             if psk is None:
-                print("Drive doesn't support TLS")
+                print "Drive doesn't support TLS"
                 return True
-            if psk.Enabled == True and int(psk.CipherSuite,16) == PskCipherSuites.Value(self.sed.cipherSuite):
+            if psk.Enabled == True and psk.CipherSuite == self.sed.cipherSuite:
                 if args.enabledisable == 'enable':
-                    print("Tls already enabled")
+                    print "Tls already enabled"
                     return True
                 if args.enabledisable == 'disable':
                     return self.sed.setPskEntry(auth, toUse, Enabled=False, CipherSuite=self.sed.cipherSuite, PSK=key)
@@ -163,10 +162,10 @@ class Sedcfg(object):
         if args.enabledisable == 'enable':
             return self.sed.setPskEntry(auth, toUse, Enabled=True, CipherSuite=self.sed.cipherSuite, PSK=key)
         elif args.enabledisable == 'disable':
-            print(" TLS already disabled on the drive")
+            print " TLS already disabled on the drive"
             return True
         else:
-            print("Please enter your input to either enable or disable Tls on the drive")
+            print "Please enter your input to either enable or disable Tls on the drive"
             return False
 
     def device_identification(self):
@@ -179,9 +178,8 @@ class Sedcfg(object):
         '''
         self.sed.fipsCompliance = self.sed.fipsCompliance()
         if self.sed.fipsCompliance != None:
-            print("Drive being tested is a FIPS drive, device identification not supported")
+            print "Drive being tested is a FIPS drive, device identification not supported"
             return
-
         # Pull the drive certificate
         self.logger.debug('Obtaining Drive certificate')
         device_cert = self.sed.get_tperSign_cert()
@@ -191,13 +189,13 @@ class Sedcfg(object):
         # Send a string to obtain the device signature
         string = str(datetime.datetime.today())
         self.logger.debug('Performing digital signing operation')
-        signature = self.sed.tperSign(bytes(string,encoding='utf8'))
+        signature = self.sed.tperSign(bytes(string))
         # Validate drive signature
         verify = identity.validate_signature(string, signature)
         if verify == True:
-            print("Device identification successfull, drive being tested is a Seagate drive")
+            print "Device identification successfull, drive being tested is a Seagate drive"
         else:
-            print("Drive being tested is not a Seagate drive")
+            print "Drive being tested is not a Seagate drive"
         return
 
     def take_ownership(self, args=None):
@@ -213,9 +211,10 @@ class Sedcfg(object):
             False: Failure of taking drive ownership.
 
         '''
+        
         self.logger.debug('Taking ownership of the drive')
-        if  self.sed.checkPIN(self.BandLayout.authority[0], bytes(self.sed.mSID,encoding='utf8')) == False:
-            print("Revert the drive to factory state,Drive ownership already taken")
+        if  self.sed.checkPIN(self.BandLayout.authority[0], self.sed.mSID) == False:
+            print "Revert the drive to factory state,Drive ownership already taken"
             return False
 
         # Change PIN of Admin to a new PIN from default value
@@ -230,7 +229,7 @@ class Sedcfg(object):
             if self.sed.changePIN(self.BandLayout.authority[1], self.keymanager.getKey(self.BandLayout.authority[1]), (None, self.initial_cred), self.BandLayout.auth_objs[0]) == False:
                return False
             if self.enable_authority() is True:
-                print('Credentials of the drive are changed successfully')
+                print 'Credentials of the drive are changed successfully'
                 return True
         return False
 
@@ -284,7 +283,7 @@ class Sedcfg(object):
         '''
         self.logger.debug('Configuring bands on the drive')
         if  self.sed.checkPIN(self.BandLayout.authority[0], self.sed.mSID) == True:
-            print("Take ownership of  the drive before configuring the drive")
+            print "Take ownership of  the drive before configuring the drive"
             return False
         # Enable band and set ranges for band
         if self.BandLayout.authority[1] is 'Admin1':
@@ -293,15 +292,15 @@ class Sedcfg(object):
             auth = 'BandMaster' + args.Bandno
 
         if auth is 'Admin1' and args.Bandno == '0':
-            print("Global range not present in Opal drives")
+            print "Global range not present in Opal drives"
             return False
 
         elif args.Bandno == '0' and args.RangeStart != None:
-            print("Can't change range for global locking range")
+            print "Can't change range for global locking range"
             return False
 
         elif args.Bandno != '0'and args.RangeStart == None:
-            print("Please provide RangeStart and RangeLength values")
+            print "Please provide RangeStart and RangeLength values"
             return False
 
         configure = self.sed.setRange(auth, int(args.Bandno), authAs=(auth, self.keymanager.getKey(auth)), RangeStart=int(args.RangeStart) if args.RangeStart is not None else None, RangeLength=int(args.RangeLength) if args.RangeLength is not None else None,
@@ -320,7 +319,7 @@ class Sedcfg(object):
                 if ret == False:
                     return False
         if configure == True:
-            print('Band{} is configured'.format(args.Bandno))
+            print 'Band{} is configured'.format(args.Bandno)
             return True
         return False
 
@@ -339,7 +338,7 @@ class Sedcfg(object):
         # Check the credentials of authorities to confirm ownership
         for auth in self.BandLayout.authority:
             if self.sed.checkPIN(auth, self.sed.mSID) is True:
-                print("Please take the ownership of the drive before FIPS enable operation")
+                print "Please take the ownership of the drive before FIPS enable operation"
                 return False
 
         # Check whether Locking is enabled for any of the bands
@@ -356,23 +355,23 @@ class Sedcfg(object):
                     lock_enabled = True
                     break
         if lock_enabled == False:
-            print("Please set ReadLockEnabled and WriteLockEnabled to True for any of the enabled bands by performing configure operation")
+            print "Please set ReadLockEnabled and WriteLockEnabled to True for any of the enabled bands by performing configure operation"
             return False
 
         # Disable Makers Authority
         if self.sed.enableAuthority('SID', False, 'C_PIN_Makers') == False:
-            print("Failed to disable Makers Authority")
+            print "Failed to disable Makers Authority"
             return False
 
         # Disable Firmware Download
-        for uid in self.sed.ports.keys():
+        for uid in self.sed.ports.iterkeys():
             p = self.sed.getPort(uid)
             if p is not None and hasattr(p, 'Name') and p.Name == 'FWDownload':
                 if p.PortLocked != True:
                     if self.sed.setPort(uid, PortLocked=True, LockOnReset=True) == False:
-                        print("Failed to disable firmware download port")
+                        print "Failed to disable firmware download port"
                         return False
-                print("FIPS mode of the drive enabled successfully")
+                print "FIPS mode of the drive enabled successfully"
                 return True
 
     def lock_unlock_bands(self, args):
@@ -389,38 +388,38 @@ class Sedcfg(object):
             False: Failure of the operation
         '''
         if  self.sed.checkPIN(self.BandLayout.authority[0], self.sed.mSID) == True:
-            print("Take ownership of  the drive and configure band before lock/unlock")
+            print "Take ownership of  the drive and configure band before lcok/unlock"
             return False
 
         if args.bandno == '0' and self.BandLayout.authority[1] is 'Admin1':
-            print("Global range not present in Opal drives")
+            print "Global range not present in Opal drives"
             return False
 
         Range_info = self.sed.getRange(int(args.bandno), self.BandLayout.authority[1])
         if Range_info == False:
             return False
-        print("Band state before lock/unlock =\n{}".format(Range_info[0]))
+        print "Band state before lock/unlock =\n{}".format(Range_info[0])
 
         self.logger.debug('Locking/Unlocking bands on the drive')
         if(args.lockunlock == "lock"):
             lock_unlock = 1
             if (Range_info[0].ReadLocked == 1):
-                print("Band{} already in locked state".format(args.bandno))
+                print "Band{} already in locked state".format(args.bandno)
                 return True
         elif(args.lockunlock == "unlock"):
             lock_unlock = 0
             if (Range_info[0].ReadLocked == 0):
-                print("Band{} already in unlocked state".format(args.bandno))
+                print "Band{} already in unlocked state".format(args.bandno)
                 return True
 
         # Perform a lock-unlock on the range
         auth = 'User' + args.bandno  if self.BandLayout.authority[1] is 'Admin1' else 'BandMaster' + args.bandno
         lock_unlock = self.sed.setRange(auth, int(args.bandno), authAs=(auth, self.keymanager.getKey(auth)), ReadLocked=lock_unlock, WriteLocked=lock_unlock)
         if lock_unlock == True:
-            print("Band{} {}ed successfully by {}".format(args.bandno, args.lockunlock, auth))
-            #print(self.sed.getRange(int(args.bandno), self.BandLayout.authority[1])[0])
+            print "Band{} {}ed successfully by {}".format(args.bandno, args.lockunlock, auth)
+            print self.sed.getRange(int(args.bandno), self.BandLayout.authority[1])[0]
             return True
-        print("Range not configured properly")
+        print "Range not configured properly"
         return False
 
     def datastore(self, args):
@@ -434,7 +433,7 @@ class Sedcfg(object):
         auth = self.BandLayout.authority[1]
         self.table_number = 0
         if auth == 'Admin1' and self.sed.checkPIN('SID', self.sed.mSID):
-            print("Please perform operation changecreds before using the datastore")
+            print "Please perform operation changecreds before using the datastore"
             return False
 
         for entryId in range(4):
@@ -442,7 +441,7 @@ class Sedcfg(object):
             if psk is None:
                 break
             if psk.Enabled == True and psk.CipherSuite == self.sed.cipherSuite:
-                print("Please disable Tls")
+                print "Please disable Tls"
                 return False
 
         self.data = nvdata = {
@@ -469,11 +468,11 @@ class Sedcfg(object):
 
             readData = self.sed.readData(self.BandLayout.authority[2])
             if readData == None:
-                print("DataStore is empty, no data to read")
+                print "DataStore is empty, no data to read"
                 return True
             elif readData == False:
                 return False
-            print(readData)
+            print readData
         return True
 
     def erase_drive(self, args):
@@ -493,7 +492,7 @@ class Sedcfg(object):
         if (result == True):
             return True
         else:
-            print("Wrong PSID")
+            print "Wrong PSID"
             return False
 
     @staticmethod
@@ -510,12 +509,12 @@ class Sedcfg(object):
         '''
         # Checking Fips Compliance Descriptor
         if sed.fipsCompliance == None or sed.fipsCompliance["standard"] != "FIPS 140-2" and sed.fipsCompliance["standard"] != "FIPS 140-3":
-            print("Drive doesn't support FIPS 140-2 or FIPS 140-3 Standard")
+            print "Drive doesn't support FIPS 140-2 or FIPS 140-3 Standard"
             return True
 
         # Checking FIPS approved mode
         if sed.fipsApprovedMode is True:
-            print("Drive operating in FIPS mode")
+            print "Drive operating in FIPS mode"
             return True
 
 
@@ -610,15 +609,15 @@ def main(args=None):
     drive_namespace = argParser().doParse(args)
     sedcfg = Sedcfg(drive_namespace.device)
     if sedcfg.sed.SSC != 'Enterprise' and sedcfg.sed.SSC != 'Opalv2':
-        print("Unable to retrieve SED functionality of the device. Enable OS to allow secure commands ")
+        print "Unable to retrieve SED functionality of the device. Enable OS to allow secure commands "
         return 1
     sedcfg.device_identification()
     rv = drive_namespace.operation(sedcfg, drive_namespace)
     if rv is not True:
-        print("Operation failed")
+        print "Operation failed"
         return 1
     else:
-        print("Operation completed successfully")
+        print "Operation completed successfully"
 
 
 if __name__ == "__main__":

@@ -29,13 +29,13 @@
 # To use the tool run python setup.py with the following argument options
 #
 # To build the Opensea libraries:
-#    python3 setup.py opensea
+#    python setup.py opensea
 #
 # To build the pysed dynamic library:
-#    python3 setup.py build
+#    python setup.py build
 #
 # To build a TCGstorageAPI linux rpm:
-#    python3 setup.py bdist_rpm
+#    python setup.py bdist_rpm
 #
 #
 from setuptools import setup, Extension
@@ -67,7 +67,7 @@ pysed = Extension('TCGstorageAPI.pysed', [
         'pysed/support.cpp',
         'pysed/Tls.cpp',
     ],
-    libraries=['boost_python3', 'gnutls', 'gnutlsxx'],
+    libraries=['boost_python', 'gnutls', 'gnutlsxx'],
     include_dirs = ['pysed','opensea-transport/include','opensea-common/include','opensea-operations/include','opensea-transport/include/vendor'],
     extra_objects=['opensea-transport/Make/gcc/lib/libopensea-transport.a','opensea-common/Make/gcc/lib/libopensea-common.a','opensea-operations/Make/gcc/lib/libopensea-operations.a']
 )

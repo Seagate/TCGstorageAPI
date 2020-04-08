@@ -23,16 +23,16 @@
 
 import sys
 import logging
-from . import pysed
+import pysed
 import struct
-from . import pysedSupport
+import pysedSupport
 import warnings
-from .pysedSupport import *
-from . import tcgSupport
-from .tcgSupport import locking_table as locking_table
-from .tcgSupport import portlocking_table as portlocking_table
-from .tcgSupport import c_tls_psk_table as c_tls_psk_table
-import io
+import cStringIO
+from pysedSupport import *
+import tcgSupport
+from tcgSupport import locking_table as locking_table
+from tcgSupport import portlocking_table as portlocking_table
+from tcgSupport import c_tls_psk_table as c_tls_psk_table
 
 StatusCode = pysed.StatusCode
 
@@ -66,7 +66,7 @@ class PskCipherSuites(object):
 
     @classmethod
     def _init(cls):
-        for k, v in vars(cls).items():
+        for k, v in vars(cls).iteritems():
             if isinstance(v, int):
                 cls.byValue[v] = k
                 cls.byValue[struct.pack('>H', v)] = k
@@ -189,8 +189,8 @@ class SedObject(object):
         self.__dict__ = d
 
     def __repr__(self, *args, **kwargs):
-        out = io.StringIO()
-        keys = list(vars(self).keys())
+        out = cStringIO.StringIO()
+        keys = vars(self).keys()
         klen = max(len(k) for k in keys)
         for k in sorted(keys):
             v = str(getattr(self, k))
@@ -303,7 +303,7 @@ class Sed(pysed.Sed):
             if hasattr(self.callbacks,'keymanager'):
                 cred = tcgSupport.getCred(self.callbacks.keymanager,auth)
             else:
-                print ("Credentials not provided for the method"+' '+currentFuncName(1))
+                print "Credentials not provided for the method"+' '+currentFuncName(1)
 
         return (auth, cred)
 
@@ -349,19 +349,16 @@ class Sed(pysed.Sed):
 
         if status != StatusCode.Success:
             return self.fail(rv, status)
-        
-        str_kwrv = tcgSupport.convert(kwrv)
-        
-        if len(str_kwrv) == 0:
+        if len(kwrv) == 0:
             return None, True
         if self.SSC != 'Enterprise':
-            for key in list(locking_table.keys()):
-                str_kwrv[key] = str_kwrv[locking_table[key]]
-            for key in list(str_kwrv.keys()):
+            for key in locking_table.keys():
+                kwrv[key] = kwrv[locking_table[key]]
+            for key in kwrv.keys():
                 if not isinstance(key, str):
-                    del str_kwrv[key]
-        str_kwrv['LockOnReset'] = 0 in str_kwrv['LockOnReset']
-        return SedObject(str_kwrv), True
+                    del kwrv[key]
+        kwrv['LockOnReset'] = 0 in kwrv['LockOnReset']
+        return SedObject(kwrv), True
 
     def setRange(self, auth, rangeNo, authAs=None, **kwargs):
         '''
@@ -381,7 +378,7 @@ class Sed(pysed.Sed):
           WriteLockEnabled- Enable (True) WriteLocked field for this band.
           LockOnReset     - Enable locks on power cycle (True) or do not modify locks on power cycle (False)
         '''
-        for key, value in list(kwargs.items()):
+        for key, value in kwargs.items():
             if key == 'LockOnReset':
                 value = [0] if kwargs.get('LockOnReset') == str(True) else []
             self.token.update({key:value})
@@ -564,8 +561,8 @@ class Sed(pysed.Sed):
         authAs = self._getAuthAs(authAs, auth)
         if self.checkPIN(authAs[0], self.mSID) == True:
             authAs = (authAs[0], self.mSID)
-        if ''.join(re.split("[^a-zA-Z]+", auth)) == "User":
-            name_value = ([(0o1, 00), (0o2, self.data_length)])
+        if ''.join(re.split("[^a-zA-Z]*", auth)) == "User":
+            name_value = ([(01, 00), (02, self.data_length)])
         else:
             name_value = [('startRow', 0)]
 
@@ -596,8 +593,8 @@ class Sed(pysed.Sed):
         if self.checkPIN(authAs[0], self.mSID) == True:
             authAs = (authAs[0], self.mSID)
 
-        if ''.join(re.split("[^a-zA-Z]+", auth)) == "User":
-            name_value, s_data = (00, 00), (0o1, tcgSupport.serialize(data))
+        if ''.join(re.split("[^a-zA-Z]*", auth)) == "User":
+            name_value, s_data = (00, 00), (01, tcgSupport.serialize(data))
         else:
             name_value, s_data = [('startRow', 0)], tcgSupport.serialize(data)
 
@@ -634,20 +631,18 @@ class Sed(pysed.Sed):
 
         if len(kwrv) == 0:
             return None
-        
-        str_kwrv = tcgSupport.convert(kwrv)
-        
-        if self.SSC != 'Enterprise':
-            for key, val in portlocking_table.items():
-                str_kwrv[key] = str_kwrv[portlocking_table[key]]
 
-        if 'LockOnReset' in str_kwrv:
-            str_kwrv['LockOnReset'] = 0 in str_kwrv['LockOnReset']
+        if self.SSC != 'Enterprise':
+            for key, val in portlocking_table.iteritems():
+                kwrv[key] = kwrv[portlocking_table[key]]
+
+        if 'LockOnReset' in kwrv:
+            kwrv['LockOnReset'] = 0 in kwrv['LockOnReset']
         if 'PortLocked' in kwrv:
-            str_kwrv['PortLocked'] = bool(str_kwrv['PortLocked'])
-        if 'UID' in str_kwrv:
-            str_kwrv['UID'] = uid
-        return SedObject(str_kwrv)
+            kwrv['PortLocked'] = bool(kwrv['PortLocked'])
+        if 'UID' in kwrv:
+            kwrv['UID'] = uid
+        return SedObject(kwrv)
 
     def setPort(self, port, authAs=None, **kwargs):
         '''
@@ -660,7 +655,7 @@ class Sed(pysed.Sed):
           LockOnReset  - Locked state upon reset. True: enabled, False: disabled, None: do not not change.
         '''
         currentFuncName = lambda n = 0: sys._getframe(n + 1).f_code.co_name
-        for key, value in list(kwargs.items()):
+        for key, value in kwargs.items():
             if key == 'LockOnReset':
                 value = [0] if 'LockOnReset' == True else []
             if key == 'PortLocked':
@@ -690,10 +685,8 @@ class Sed(pysed.Sed):
             authAs=self._getAuthAs(authAs, auth))
         if status != StatusCode.Success:
             return self.fail(rv, status)
-    
-        str_kwrv = tcgSupport.convert(kwrv)
-        
-        if str_kwrv.get('Enabled') == 1:
+	
+        if kwrv.get('Enabled') == 1:
             return True
         else:
             return False
@@ -735,10 +728,7 @@ class Sed(pysed.Sed):
         status, rv, kwrv = self.invoke('LockingInfo', 'Get', sp='LockingSP')
         if status != StatusCode.Success:
             return self.fail(rv, status)
-        
-        str_kwrv = tcgSupport.convert(kwrv)
-        
-        return SedObject(str_kwrv)
+        return SedObject(kwrv)
 
     def random(self, count=32):
         '''
@@ -762,7 +752,7 @@ class Sed(pysed.Sed):
 
         Returns True when successful
         '''
-        if isinstance(psid, str):
+        if isinstance(psid, basestring):
             creds = psid
         elif self.wwn in psid:
             creds = psid[self.wwn]
@@ -901,19 +891,15 @@ class Sed(pysed.Sed):
 
         if status != StatusCode.Success:
             return self.fail(rv, status)
-        
         if len(kwrv) == 0:
             return None
-        
-        str_kwrv = tcgSupport.convert(kwrv)
-        
         if self.SSC == 'Opalv2':
-            for key, val in c_tls_psk_table.items():
-                str_kwrv[key] = str_kwrv[c_tls_psk_table[key]]
+            for key, val in c_tls_psk_table.iteritems():
+                kwrv[key] = kwrv[c_tls_psk_table[key]]
 
         if 'CipherSuite' in kwrv:
-            str_kwrv['CipherSuite'] = PskCipherSuites.Name(str_kwrv['CipherSuite'])
-        return SedObject(str_kwrv)
+            kwrv['CipherSuite'] = PskCipherSuites.Name(kwrv['CipherSuite'])
+        return SedObject(kwrv)
 
     def setPskEntry(self, authority, psk, authAs=None, **kwargs):
         '''

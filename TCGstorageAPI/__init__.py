@@ -20,4 +20,4 @@
 # \brief Initializes TCGstorageAPI package
 #
 #-----------------------------------------------------------------------------
-from .tcgapi import Sed
+from tcgapi import Sed

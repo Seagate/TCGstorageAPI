@@ -20,12 +20,13 @@ FROM centos:7
 USER root
 COPY requirements.txt ./
 RUN yum -y update && \
-yum -y install epel-release && \
-yum -y install python3 boost-python36.x86_64 boost-python36-devel.x86_64 gcc gcc-c++ gnutls-devel rpm-build python3-devel && \
+yum -y install gcc gcc-c++ gnutls-devel rpm-build python-devel boost-python boost-devel && \
 yum clean all
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+RUN python get-pip.py
+RUN pip install --no-cache-dir -r requirements.txt
 WORKDIR /usr/src/TCGStorageAPI
 COPY . .
-RUN python3 setup.py opensea
-RUN python3 setup.py bdist_rpm
+RUN python setup.py opensea
+RUN python setup.py bdist_rpm
 RUN yum install -y  dist/TCGstorageAPI-*.x86_64.rpm

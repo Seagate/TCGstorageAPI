@@ -52,9 +52,7 @@ Start by updating the package index:
 
 `sudo yum update`
 
-Install python3:
-
-`sudo yum install python3`
+CentOS 7 comes with a pre-installed version of Python2.7, otherwise, install python.
 
 Install gcc and g++:
 
@@ -64,103 +62,106 @@ Install gcc and g++:
 
 Install boost:
 
-`sudo yum install epel-release`
+`sudo yum -y install boost-python`
 
-`sudo yum install boost-python36-devel.x86_64`
+`sudo yum -y install boost-devel`
 
 Install gnutls:
 
 `sudo yum -y install gnutls-devel`
 
-Install python3-extensions:
+Install Python-extensions:
 
-`sudo yum -y install python3-devel`
+`sudo yum -y install python-devel`
 
-Install rpm build package
- 
- `sudo yum install rpm-build`
+Download and install pip:
 
-Change directory to tcgstorageapi and download the package dependencies:
+`curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py`
 
- `pip3 install -r requirements.txt`
- 
+`python get-pip.py`
+
+Download the python dependencies:
+
+`pip install -r requirements.txt`
+
 ##### Ubuntu 18.04
 
 Start by updating package index
 
 `sudo apt-get update`
 
-Install python3 and pip:
+Install python2.7 and pip:
 
-`sudo apt install python3`
+`sudo apt install python2.7-minimal`
 
-`sudo apt install python3-pip`
+`sudo apt-get install python-pip`
 
 Install python extensions:
 
-`sudo apt-get install -y --no-install-recommends python3-all python3-all-dev`
+`sudo apt-get install -y --no-install-recommends python-all python-all-dev`
 
 Install gnutls:
 
-`sudo apt-get install libgnutls28-dev`
-
-Install Boost-Python:
-
-`sudo apt-get install libboost-all-dev`
-
+`sudo apt-get install libgnutls28-dev` 
+ 
+ Install Boost-Python:
+ 
+ `sudo apt-get install libboost-all-dev`
+ 
 Change directory to tcgstorageapi and download the package dependencies:
 
 `pip3 install --no-cache-dir -r requirements.txt`
-
+ 
 ### Building
 
 #### Linux
 
 ##### CentOS 7
 
-From the terminal, change directory to tcgstorageapi. 
-
-Run the command "python3 setup.py opensea" to build the openseachest libraries. After the command completes, run "python3 setup.py bdist_rpm" to build an rpm distro. 
-
-##### Ubuntu 18.04
-
 From the terminal, change directory to tcgstorageapi.
 
-Run the command "python3 setup.py opensea" to build the openseachest libraries. After the command completes, run "python3 setup.py build" to build the library.
-
-### Installation
-
-#### Centos 7
-
-From the tcgstorageapi directory, run "yum install -y  dist/TCGstorageAPI-*.x86_64.rpm" to install the built python3 package.
+Run the command "python setup.py opensea" to build the openseachest libraries. After the command completes, run "python setup.py bdist_rpm" to build an rpm distro.
 
 #### Ubuntu 18.04
 
-Change directory to build/lib.linux-x86_64-3.6. Copy TCGstorageAPI directory to /usr/local/lib/python3/dist-packages/.
+From the terminal, change directory to tcgstorageapi.
+
+Run the command "python setup.py opensea" to build the openseachest libraries. After the command completes, run "python setup.py build" to build the library.
+
+### Installation
+
+#### CentOS
+
+From the tcgstorageapi directory, run "yum install -y  dist/TCGstorageAPI-*.x86_64.rpm" to install the built python package.
+
+#### Ubuntu
+
+Change directory to build/lib.linux-x86_64-2.7. Copy TCGstorageAPI directory to /usr/local/lib/python2.7/site-packages/.
 
 On linux systems, to allow the security commands to reach the SATA drives, set the below flag value to 1:
 
 /sys/module/libata/parameters/allow_tpm
 
-**Alternatively, the package can be built and installed using the Dockerfile**.
+**Alternatively, the package can be built and installed using the Dockerfile.**
 
-### Docker for CentOS
+### Docker for Linux
 
-To build the docker image from a Dockerfile, from the tcgstorageapi directory run the command as root "sudo docker build -f docker/(OS flavor)/(OS version)/docker-file-name -t docker-image-name ."
+To build the docker image from a Dockerfile, enter the tcgstorageapi directory and run the command as root "sudo docker build -f docker/(OS flavor)/(OS version)/docker-file-name -t docker-image-name ."
 
-Example: sudo docker build -f docker/CENTOS/7/Dockerfile -t tcgstorageapi-centos .
+Example: `sudo docker build -f docker/CENTOS/7/Dockerfile -t tcgstorageapi-centos .`
 
 The docker container needs to be run in the privileged mode since you are accessing the device. To run the docker container, run the following command "sudo docker run -it --privileged docker-image-name /bin/bash". A new bash shell should appear indicating the running container, you can run the sedcfg.py script from the bash.
 
-Example: sudo docker run -it --privileged tcgstorageapi-centos /bin/bash
+Example: `sudo docker run -it --privileged tcgstorageapi-centos /bin/bash`
 
 ### Example
+
 Look in the samples directory and run the script sample_cli.py.
 
 WARNING: the credentials for the Admin and Users are hardcoded in the example and should be changed!
 
 The API can support key managers.
 
-The example currently works with 2 bands (TCG Ranges).
+The example currently works with 2 bands (TCG Ranges).   
 
 The example script must be run as Administrator/root.

@@ -62,7 +62,7 @@ namespace Tcg {
 #  endif
 #endif
 
-
+#line 94 "parser.tab.hpp" // lalr1.cc:377
 
 # include <cassert>
 # include <cstdlib> // std::abort
@@ -137,9 +137,9 @@ namespace Tcg {
 # define YYDEBUG 0
 #endif
 
-
+#line 9 "parser.ypp" // lalr1.cc:377
 namespace  Tcg  {
-
+#line 171 "parser.tab.hpp" // lalr1.cc:377
 
 
 
@@ -299,7 +299,7 @@ namespace  Tcg  {
 
 
   /// A Bison parser.
-  class  Parser 
+  class  Parser
   {
   public:
 #ifndef YYSTYPE
@@ -312,13 +312,15 @@ namespace  Tcg  {
       // AtomInt
       char dummy2[sizeof(long_)];
 
-      // AtomString
-      // AtomStringC
       // value
-      // atom_string
       // atom
       // list
       char dummy3[sizeof(object)];
+
+      // AtomString
+      // AtomStringC
+      // atom_string
+      char dummy4[sizeof(str)];
 };
 
     /// Symbol semantic values.
@@ -395,6 +397,8 @@ namespace  Tcg  {
 
   basic_symbol (typename Base::kind_type t, const object v);
 
+  basic_symbol (typename Base::kind_type t, const str v);
+
 
       /// Constructor for symbols with semantic value.
       basic_symbol (typename Base::kind_type t,
@@ -464,11 +468,11 @@ namespace  Tcg  {
 
     static inline
     symbol_type
-    make_AtomString (const object& v);
+    make_AtomString (const str& v);
 
     static inline
     symbol_type
-    make_AtomStringC (const object& v);
+    make_AtomStringC (const str& v);
 
     static inline
     symbol_type
@@ -810,13 +814,16 @@ namespace  Tcg  {
         value.copy< long_ > (other.value);
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         value.copy< object > (other.value);
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        value.copy< str > (other.value);
         break;
 
       default:
@@ -843,13 +850,16 @@ namespace  Tcg  {
         value.copy< long_ > (v);
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         value.copy< object > (v);
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        value.copy< str > (v);
         break;
 
       default:
@@ -880,6 +890,12 @@ namespace  Tcg  {
 
   template <typename Base>
    Parser ::basic_symbol<Base>::basic_symbol (typename Base::kind_type t, const object v)
+    : Base (t)
+    , value (v)
+  {}
+
+  template <typename Base>
+   Parser ::basic_symbol<Base>::basic_symbol (typename Base::kind_type t, const str v)
     : Base (t)
     , value (v)
   {}
@@ -918,13 +934,16 @@ namespace  Tcg  {
         value.template destroy< long_ > ();
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         value.template destroy< object > ();
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        value.template destroy< str > ();
         break;
 
       default:
@@ -958,13 +977,16 @@ namespace  Tcg  {
         value.move< long_ > (s.value);
         break;
 
-      case 4: // AtomString
-      case 5: // AtomStringC
       case 22: // value
-      case 24: // atom_string
       case 25: // atom
       case 26: // list
         value.move< object > (s.value);
+        break;
+
+      case 4: // AtomString
+      case 5: // AtomStringC
+      case 24: // atom_string
+        value.move< str > (s.value);
         break;
 
       default:
@@ -1034,13 +1056,13 @@ namespace  Tcg  {
   }
 
    Parser ::symbol_type
-   Parser ::make_AtomString (const object& v)
+   Parser ::make_AtomString (const str& v)
   {
     return symbol_type (token::TokenAtomString, v);
   }
 
    Parser ::symbol_type
-   Parser ::make_AtomStringC (const object& v)
+   Parser ::make_AtomStringC (const str& v)
   {
     return symbol_type (token::TokenAtomStringC, v);
   }
@@ -1112,9 +1134,9 @@ namespace  Tcg  {
   }
 
 
-
-} //  Tcg 
-
+#line 9 "parser.ypp" // lalr1.cc:377
+} //  Tcg
+#line 1168 "parser.tab.hpp" // lalr1.cc:377
 
 
 

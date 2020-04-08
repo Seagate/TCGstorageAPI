@@ -99,12 +99,12 @@ namespace Tcg {
 %define api.token.prefix {Token}
 
 %token<long_> AtomInt
-%token<object> AtomString AtomStringC
+%token<str> AtomString AtomStringC
 %token StartList EndList StartName EndName Call EndData EndSession
 %token StartTransaction EndTransaction EmptyAtom END
 
 %type<object>	atom;
-%type<object> atom_string;
+%type<str> atom_string;
 %type<object>	value;
 %type<list> values;
 %type<object> list;

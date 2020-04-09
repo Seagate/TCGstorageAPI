@@ -58,7 +58,8 @@ public:
 	~Scanner();
 
 	Parser::symbol_type get_next_token();
-	size_t getPos() {return offset + next - start;}
+	unsigned int  getPos() {return offset + next - start;}
+	//size_t getPos() {return offset + next - start;}
 	std::string getBuffer();
 	bool amDone();
 };

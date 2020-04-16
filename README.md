@@ -117,7 +117,7 @@ Install gnutls:
  
 Change directory to tcgstorageapi and download the package dependencies:
 
-`pip3 install --no-cache-dir -r requirements.txt`
+`pip install --no-cache-dir -r requirements.txt`
 
 #### Windows 10
 
@@ -129,9 +129,15 @@ Required Tools:
     (ARM and ARM64)
   * MSVC 14.1 
 
-Download boost_1_71_0.zip(https://www.boost.org/users/history/version_1_71_0.html) and extract the zip file into the "C:\" folder.
+Download boost_1_71_0.zip(https://www.boost.org/users/history/version_1_71_0.html). Create an empty folder "Boost" in the "C:\" drive and extract the zip file into the "C:\Boost" folder.
 
 Download and install Python2.7 at "C:\Python27". Add "C:\Python27" to the Windows path.
+
+Install pip.
+
+Change directory to tcgstorageapi and install python dependencies:
+
+pip install -r requirements.txt
  
 ### Building
 
@@ -153,7 +159,7 @@ Run the command "python setup.py opensea" to build the openseachest libraries. A
 
 **Build boost**
 
-Open the Developer Command Prompt for VS2017 and change folder to "C:\boost_1_71_0". Run the command "bootstrap.bat" followed by "b2 --toolset=msvc-14.1 -j4 link=static runtime-link=static address-model=64" to build boost.
+Open the Developer Command Prompt for VS2017 and change folder to "C:\Boost\boost_1_71_0" and build boost for Python.
 
 **Build pysed (Visual Studio or msbuild)**
 
@@ -173,6 +179,10 @@ From the developer command prompt for VS2017, change directory to "tcgstorageapi
 Build with the command "msbuild /p:Configuration=(build type) /p:Platform=(platform)".
 
 Example: `msbuild /p:Configuration=Static-Release /p:Platform=x64`
+
+Available Platforms: * Win32 * x64 * ARM * ARM64
+
+Available Build Types: * Static-Release * Static-Debug
 
 ### Installation
 

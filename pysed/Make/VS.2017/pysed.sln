@@ -1,0 +1,73 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.329
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pysed", "pysed.vcxproj", "{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B} = {7DAC7F63-E808-47FD-BEEB-33E4A870008B}
+		{A0771494-8717-48AB-A0E5-49191252FF2C} = {A0771494-8717-48AB-A0E5-49191252FF2C}
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF} = {FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "opensea-common", "..\..\..\opensea-common\Make\VS.2017\opensea-common\opensea-common\opensea-common.vcxproj", "{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "opensea-operationsLib", "..\..\..\opensea-operations\Make\VS.2017\opensea-operations\opensea-operations\opensea-operations.vcxproj", "{A0771494-8717-48AB-A0E5-49191252FF2C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B} = {7DAC7F63-E808-47FD-BEEB-33E4A870008B}
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF} = {FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "opensea-transportLib", "..\..\..\opensea-transport\Make\VS.2017\opensea-transport\opensea-transport\opensea-transport.vcxproj", "{7DAC7F63-E808-47FD-BEEB-33E4A870008B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF} = {FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Static-Debug|x64 = Static-Debug|x64
+		Static-Debug|x86 = Static-Debug|x86
+		Static-Release|x64 = Static-Release|x64
+		Static-Release|x86 = Static-Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Debug|x64.ActiveCfg = Static-Debug|x64
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Debug|x64.Build.0 = Static-Debug|x64
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Debug|x86.ActiveCfg = Static-Debug|Win32
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Debug|x86.Build.0 = Static-Debug|Win32
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Release|x64.ActiveCfg = Static-Release|x64
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Release|x64.Build.0 = Static-Release|x64
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Release|x86.ActiveCfg = Static-Release|Win32
+		{AFAE9B74-58F2-4C60-B255-5B0345F9F0F0}.Static-Release|x86.Build.0 = Static-Release|Win32
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Debug|x64.ActiveCfg = Static-Debug|x64
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Debug|x64.Build.0 = Static-Debug|x64
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Debug|x86.ActiveCfg = Static-Debug|Win32
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Debug|x86.Build.0 = Static-Debug|Win32
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Release|x64.ActiveCfg = Static-Release|x64
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Release|x64.Build.0 = Static-Release|x64
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Release|x86.ActiveCfg = Static-Release|Win32
+		{FBCBA2F1-3BF8-4A25-B815-E228E1AEDCFF}.Static-Release|x86.Build.0 = Static-Release|Win32
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Debug|x64.ActiveCfg = Static-Debug|x64
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Debug|x64.Build.0 = Static-Debug|x64
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Debug|x86.ActiveCfg = Static-Debug|Win32
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Debug|x86.Build.0 = Static-Debug|Win32
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Release|x64.ActiveCfg = Static-Release|x64
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Release|x64.Build.0 = Static-Release|x64
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Release|x86.ActiveCfg = Static-Release|Win32
+		{A0771494-8717-48AB-A0E5-49191252FF2C}.Static-Release|x86.Build.0 = Static-Release|Win32
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Debug|x64.ActiveCfg = Static-Debug|x64
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Debug|x64.Build.0 = Static-Debug|x64
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Debug|x86.ActiveCfg = Static-Debug|Win32
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Debug|x86.Build.0 = Static-Debug|Win32
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Release|x64.ActiveCfg = Static-Release|x64
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Release|x64.Build.0 = Static-Release|x64
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Release|x86.ActiveCfg = Static-Release|Win32
+		{7DAC7F63-E808-47FD-BEEB-33E4A870008B}.Static-Release|x86.Build.0 = Static-Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {768E027B-EE19-4E55-BBD4-C2CE6A30B163}
+	EndGlobalSection
+EndGlobal

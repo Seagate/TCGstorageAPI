@@ -119,6 +119,26 @@ Change directory to tcgstorageapi and download the package dependencies:
 
 `pip3 install --no-cache-dir -r requirements.txt`
 
+#### Windows 10
+
+Your system will require the latest [Microsoft Visual C++ 2017 Redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads) to build pysed.
+
+Required Tools:
+  * Visual Studio 2017 (can also use msbuild)
+  * Windows 10 SDK version 10.0.16299.0 and SDK version 10.0.17763.0 for Visual Studio 2017
+    (ARM and ARM64)
+  * MSVC 14.1 
+
+Download boost_1_71_0.zip(https://www.boost.org/users/history/version_1_71_0.html). Create an empty folder "Boost" in the "C:\" drive and extract the zip file into the "C:\Boost" folder.
+
+Download and install Python3.8 at "C:\Python38". Add "C:\Python38" to the Windows path.
+
+Install pip3.
+
+Change directory to tcgstorageapi and install python3 dependencies:
+
+`pip3 install -r requirements.txt`
+
 ### Building
 
 #### Linux
@@ -135,6 +155,35 @@ From the terminal, change directory to tcgstorageapi.
 
 Run the command "python3 setup.py opensea" to build the openseachest libraries. After the command completes, run "python3 setup.py build" to build the library.
 
+#### Windows 10
+
+**Build boost**
+
+Open the Developer Command Prompt for VS2017 and change folder to "C:\Boost\boost_1_71_0" and build boost for Python3.
+
+**Build pysed (Visual Studio or msbuild)**
+
+##### Visual Studio
+  
+Open the solution file in "tcgstorageapi\pysed\Make\VS.2017\pysed.sln".
+Set the desired build configuration.
+Press "F7" to build pysed, or select "Build->Build All" from the menu.
+"pysed" will be output into "tcgstorageapi\pysed\Make\VS.2017\(platform)\(build type)".
+
+Example: `tcgstorageapi\pysed\Make\VS.2017\x64\Static-Release`
+  
+##### msbuild
+
+From the developer command prompt for VS2017, change directory to "tcgstorageapi\pysed\Make\VS.2017".
+
+Build with the command "msbuild /p:Configuration=(build type) /p:Platform=(platform)".
+
+Example: `msbuild /p:Configuration=Static-Release /p:Platform=x64`
+
+Available Platforms: * Win32 * x64 * ARM  * ARM64
+
+Available Build Types: * Static-Release * Static-Debug
+
 ### Installation
 
 #### Centos 7
@@ -148,6 +197,10 @@ Change directory to build/lib.linux-x86_64-3.6. Copy TCGstorageAPI directory to 
 On linux systems, to allow the security commands to reach the SATA drives, set the below flag value to 1:
 
 /sys/module/libata/parameters/allow_tpm
+
+#### Windows 10
+
+Change directory to tcgstorageapi and copy the folder TCGstorageAPI to C:\Python38\Lib\site-packages. Copy pysed\Make\VS.2017\(platform)\(build type)\pysed.sln to C:\Python38\Lib\site-packages\TCGstorageAPI.
 
 **Alternatively, the package can be built and installed using the Dockerfile**.
 

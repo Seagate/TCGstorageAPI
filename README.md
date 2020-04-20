@@ -87,6 +87,10 @@ Download the python dependencies:
 
 `pip install -r requirements.txt`
 
+Install rpm build package:
+ 
+ `sudo yum install rpm-build`
+
 ##### Ubuntu 18.04
 
 Start by updating package index
@@ -137,7 +141,35 @@ Install pip.
 
 Change directory to tcgstorageapi and install python dependencies:
 
-pip install -r requirements.txt
+`pip install -r requirements.txt`
+
+#### FreeBSD 12
+
+Start by updating the package index:
+
+`sudo pkg update -f`
+
+Install gcc and gmake:
+
+`sudo pkg install gmake`
+
+`sudo pkg install gcc`
+
+Install python:
+
+`sudo pkg install python2`
+
+Install python packages:
+
+`sudo pkg install <package>`
+
+package:
+
+* py27-boost-libs
+* py27-cryptography
+* py27-passlib
+* py27-openssl
+* py27-pycparser
  
 ### Building
 
@@ -153,7 +185,7 @@ Run the command "python setup.py opensea" to build the openseachest libraries. A
 
 From the terminal, change directory to tcgstorageapi.
 
-Run the command "python setup.py opensea" to build the openseachest libraries. After the command completes, run "python setup.py build" to build the library.
+Run the command "python setup.py opensea" to build the openseachest libraries. After the command completes, run "python setup.py build" to build the pysed library.
 
 #### Windows 10
 
@@ -184,6 +216,12 @@ Available Platforms: * Win32 * x64 * ARM * ARM64
 
 Available Build Types: * Static-Release * Static-Debug
 
+#### FreeBSD 12
+
+From the terminal, change directory to tcgstorageapi.
+
+Run the command "python2.7 setup.py opensea" to build the openseachest libraries. After the command completes, run "python2.7 setup.py build" to build the pysed library.
+
 ### Installation
 
 #### CentOS
@@ -203,6 +241,10 @@ On linux systems, to allow the security commands to reach the SATA drives, set t
 Change directory to tcgstorageapi and copy the folder TCGstorageAPI to C:\Python27\Lib\site-packages. Copy pysed\Make\VS.2017\(platform)\(build type)\pysed.sln to C:\Python27\Lib\site-packages\TCGstorageAPI.
 
 **Alternatively, the package can be built and installed using the Dockerfile.**
+
+#### FreeBSD 12
+
+Change directory to build/lib.freebsd-12.1-RELEASE-amd64-2.7. Copy TCGstorageAPI directory to /usr/local/lib/python2.7/site-packages/.
 
 ### Docker for Linux
 

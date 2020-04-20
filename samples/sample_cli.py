@@ -70,7 +70,7 @@ class Sedcfg(object):
             dev:Device handle of the drive.
         '''
 
-        os_type = {'linux2':self.linux_platform, 'win32':self.windows_platform}
+        os_type = {'linux2':self.linux_platform,'linux':self.linux_platform, 'win32':self.windows_platform,'freebsd12':self.freebsd_platform }
         os_type[sys.platform](dev)
 
         logging.basicConfig(
@@ -103,6 +103,17 @@ class Sedcfg(object):
         self.log_filename = os.path.join(os.path.dirname(__file__), 'sedcfg.log')
         self.devname = devname
 
+    def freebsd_platform(self, devname):
+        '''
+        The function to initialize parameters for the bsd  platorm.
+        
+        Parameters:
+            devanme:Device handle of the drive.
+        '''
+        
+        self.log_filename = os.path.join(os.path.dirname(__file__), 'sedcfg.log')   
+        self.devname = devname 
+    
     def windows_platform(self, devname):
         '''
         The function to initialize parameters for the windows platform.

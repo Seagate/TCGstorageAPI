@@ -106,14 +106,22 @@ unsigned CipherSuites::Value(object name) {
 struct beint32_to_python {
 	static PyObject * convert(beint32_t const & s) {
 		const uint32_t v = s;
+#if defined(__FreeBSD__)
+		return PyLong_FromLong(v);
+#else		
 		return PyInt_FromLong(v);
+#endif
 	}
 };
 
 struct beint64_to_python {
 	static PyObject * convert(beint64_t const & s) {
 		const long v = static_cast<long>(s);
+#if defined(__FreeBSD__)
+		return PyLong_FromLong(v);
+#else		
 		return PyInt_FromLong(v);
+#endif
 	}
 };
 
@@ -427,9 +435,9 @@ static const char * namedParms[] = { "sp", "authas", "timeout", "noClose",
 
 static  int sizeparms = 6;
 
-static bool isKnownParameter(string &key) {
-	for (int i = 0; i < sizeparms; i++)
-		if (!strcasecmp(key.c_str(), namedParms[i]))
+static bool isKnownParameter(string &key){
+	for(int i = 0 ; i < sizeparms; i++)
+		if(!strcasecmp(key.c_str(),namedParms[i]))
 			return true;
 	return false;
 }

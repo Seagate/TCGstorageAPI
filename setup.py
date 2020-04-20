@@ -40,6 +40,7 @@
 #
 from setuptools import setup, Extension
 import subprocess
+import sys
 
 from setuptools import Command
 
@@ -53,10 +54,9 @@ class BuildOpenSea(Command):
         """Abstract method that is required to be overwritten"""
     def run(self):
         print(" => Building OpenSea Static Libraries ...")
-        subprocess.call(['make', '-C', 'opensea-transport/Make/gcc'])
-        subprocess.call(['make', '-C', 'opensea-operations/Make/gcc'])
-        subprocess.call(['make', '-C', 'opensea-common/Make/gcc'])
-
+        subprocess.call(['gmake', '-C', 'opensea-transport/Make/gcc'])
+        subprocess.call(['gmake', '-C', 'opensea-operations/Make/gcc'])
+        subprocess.call(['gmake', '-C', 'opensea-common/Make/gcc'])
 
 pysed = Extension('TCGstorageAPI.pysed', [
         'pysed/pysed.cpp',
@@ -66,11 +66,16 @@ pysed = Extension('TCGstorageAPI.pysed', [
         'pysed/parser.tab.cpp',
         'pysed/support.cpp',
         'pysed/Tls.cpp',
-    ],
-    libraries=['boost_python', 'gnutls', 'gnutlsxx'],
-    include_dirs = ['pysed','opensea-transport/include','opensea-common/include','opensea-operations/include','opensea-transport/include/vendor'],
-    extra_objects=['opensea-transport/Make/gcc/lib/libopensea-transport.a','opensea-common/Make/gcc/lib/libopensea-common.a','opensea-operations/Make/gcc/lib/libopensea-operations.a']
+    ],    	
+    libraries=['boost_python','gnutls', 'gnutlsxx'],
+    include_dirs = ['pysed','opensea-transport/include','opensea-common/include','opensea-operations/include','opensea-transport/include/vendor','/usr/local/include'],
+    extra_objects=['opensea-transport/Make/gcc/lib/libopensea-transport.a','opensea-common/Make/gcc/lib/libopensea-common.a','opensea-operations/Make/gcc/lib/libopensea-operations.a'],
+    extra_compile_args=['-O0','-g','-DDISABLE_NVME_PASSTHROUGH']
 )
+
+if sys.platform == 'freebsd12':
+    pysed.libraries=[lib.replace('boost_python', 'boost_python27') for lib in pysed.libraries] 
+    pysed.libraries.append('cam')
 
 setup(
     name='TCGstorageAPI',

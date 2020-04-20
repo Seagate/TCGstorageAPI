@@ -32,7 +32,7 @@
 
 #ifndef SEATRANSPORT_H_
 #define SEATRANSPORT_H_
-
+typedef unsigned char u_char ;
 namespace Tcg
 {
 

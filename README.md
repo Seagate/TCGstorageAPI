@@ -139,6 +139,35 @@ Change directory to tcgstorageapi and install python3 dependencies:
 
 `pip3 install -r requirements.txt`
 
+#### FreeBSD 12
+
+Start by updating the package index:
+
+`sudo pkg update -f`
+
+Install gcc and gmake:
+
+`sudo pkg install gmake`
+
+`sudo pkg install gcc`
+
+Install python:
+
+`sudo pkg install python`
+
+Install python packages:
+
+`sudo pkg install <package>`
+
+package:
+
+* py37-boost-libs-1.72.0
+* py37-cryptography
+* py37-passlib
+* py37-openssl
+* py37-pycparser
+* py37-setuptools-41.4.0_1
+
 ### Building
 
 #### Linux
@@ -151,7 +180,8 @@ Run the command "python3 setup.py opensea" to build the openseachest libraries. 
 
 ##### Ubuntu 18.04
 
-From the terminal, change directory to tcgstorageapi.
+From the terminal, link gmake to make by running "sudo ln -s /usr/bin/make /usr/bin/gmake".
+Change directory to tcgstorageapi.
 
 Run the command "python3 setup.py opensea" to build the openseachest libraries. After the command completes, run "python3 setup.py build" to build the library.
 
@@ -184,6 +214,12 @@ Available Platforms: * Win32 * x64 * ARM  * ARM64
 
 Available Build Types: * Static-Release * Static-Debug
 
+#### FreeBSD 12
+
+From the terminal, change directory to tcgstorageapi.
+
+Run the command "python3.7 setup.py opensea" to build the openseachest libraries. After the command completes, run "python3.7 setup.py build" to build the pysed library.
+
 ### Installation
 
 #### Centos 7
@@ -203,6 +239,10 @@ On linux systems, to allow the security commands to reach the SATA drives, set t
 Change directory to tcgstorageapi and copy the folder TCGstorageAPI to C:\Python38\Lib\site-packages. Copy pysed\Make\VS.2017\(platform)\(build type)\pysed.sln to C:\Python38\Lib\site-packages\TCGstorageAPI.
 
 **Alternatively, the package can be built and installed using the Dockerfile**.
+
+#### FreeBSD 12
+
+Change directory to build/lib.freebsd-12.1-RELEASE-amd64-3.7. Copy TCGstorageAPI directory to /usr/local/lib/python3.7/site-packages/.
 
 ### Docker for CentOS
 

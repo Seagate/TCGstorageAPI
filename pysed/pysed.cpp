@@ -41,6 +41,7 @@
 #include "Tls.h"
 #endif
 #include <stdio.h>
+#define __PYTHON3__
 
 using namespace Tcg;
 using namespace boost::python;
@@ -107,14 +108,22 @@ unsigned CipherSuites::Value(object name) {
 struct beint32_to_python {
 	static PyObject * convert(beint32_t const & s) {
 		const uint32_t v = s;
+#if defined(__FreeBSD__) || defined(__PYTHON3__)
 		return PyLong_FromLong(v);
+#else		
+		return PyInt_FromLong(v);
+#endif
 	}
 };
 
 struct beint64_to_python {
 	static PyObject * convert(beint64_t const & s) {
 		const long v = static_cast<long>(s);
+#if defined(__FreeBSD__) || defined(__PYTHON3__)
 		return PyLong_FromLong(v);
+#else		
+		return PyInt_FromLong(v);
+#endif
 	}
 };
 

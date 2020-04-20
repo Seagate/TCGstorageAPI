@@ -183,7 +183,7 @@ Run the command "python setup.py opensea" to build the openseachest libraries. A
 
 #### Ubuntu 18.04
 
-From the terminal, change directory to tcgstorageapi.
+From the terminal, link gmake to make by running "sudo ln -s /usr/bin/make /usr/bin/gmake". Change directory to tcgstorageapi.
 
 Run the command "python setup.py opensea" to build the openseachest libraries. After the command completes, run "python setup.py build" to build the pysed library.
 

@@ -675,7 +675,7 @@ void Discovery::refresh(SeaTransport * transport) {
 		case fcOpalSSC:
 			opal = reinterpret_cast<OpalDesc*>(nextHdr);
 			break;
-
+		default:
 			otherSSC = reinterpret_cast<DescHdr *>(nextHdr)->featureCode;
 			break;
 		}

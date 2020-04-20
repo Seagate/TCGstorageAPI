@@ -27,6 +27,8 @@ jobs:
         run: |
           sudo apt-get install python-setuptools
           pip install --no-cache-dir -r requirements.txt
+      - name: Link gmake to make
+        run: sudo ln -s /usr/bin/make /usr/bin/gmake
       - name: Build opensea
         run: python setup.py opensea
       - name: Build TCGstorageAPI package

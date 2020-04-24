@@ -85,7 +85,7 @@ class Sedcfg(object):
         self.keymanager = keymanager.KeyManager()
 
         # Build the SED object for the drive
-        self.sed = Sed(dev, callbacks=self)
+        self.sed = Sed(self.devname, callbacks=self)
         for key, val in list(self.cred_table.items()):
             self.keymanager.setKey(key, val)
 
@@ -147,7 +147,9 @@ class Sedcfg(object):
         Parameters:
             args - Commandline arguments,i.e enable/disable
         '''
-
+        if sys.platform=="win32":
+            print("Tls support not provided for Windows")
+            return False
         if self.BandLayout.authority[1] == 'Admin1'and self.sed.checkPIN(self.BandLayout.authority[0], self.sed.mSID) == True:
             print("Please perform operation changecreds before Tls enable")
             return False

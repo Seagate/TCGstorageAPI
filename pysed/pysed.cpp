@@ -334,6 +334,10 @@ object Sed::getFipsCompliance() {
 				}
 				if (desc->type == 1) {
 					dict fipsInfo;
+					char* temp_p = NULL;
+					char* replace_p = NULL;
+					char replaceval = '0';
+					replace_p = &replaceval;
 					if (desc->relatedStandard == FIPS_140_2)
 						fipsInfo["standard"] = "FIPS 140-2";
 					else if (desc->relatedStandard == FIPS_140_3)
@@ -342,8 +346,27 @@ object Sed::getFipsCompliance() {
 						fipsInfo["standard"] = "Unknown";
 
 					fipsInfo["securityLevel"] = desc->securityLevel;
+					//Replace extended ascii characters
+					for (temp_p = &desc->hardwareVersion[0]; *temp_p != '\0'; temp_p++)
+					{
+						if ((int(*temp_p) > 127) || (int(*temp_p) < 0)) {
+							*temp_p = *replace_p;
+						}
+					}
 					str hwver(desc->hardwareVersion);
 					fipsInfo["hardwareVersion"] = hwver.rstrip();
+					for (temp_p = &desc->descVersion[0]; *temp_p != '\0'; temp_p++)
+					{
+						if ((int(*temp_p) > 127) || (int(*temp_p) < 0)) {
+							*temp_p = *replace_p;
+						}
+					}
+					for (temp_p = &desc->moduleName[0]; *temp_p != '\0'; temp_p++)
+					{
+						if ((int(*temp_p) > 127) || (int(*temp_p) < 0)) {
+							*temp_p = *replace_p;
+						}
+					}
 					fipsInfo["descriptorVersion"] = desc->descVersion;
 					fipsInfo["moduleName"] = desc->moduleName;
 					return fipsInfo;

@@ -66,6 +66,8 @@ Example:
 
 **To Enable TLS or Disable TLS secure messaging:**
 
+TLS operations are not supported on Windows OS.
+
 On Opal drives, make sure to change the default credentials and activate lockingSP first by running "changecreds".
 
 ***WARNING: The generated PSK is stored in a file. This is insecure! In reality the file needs to be replaced by a local keystore or remote key manager.***

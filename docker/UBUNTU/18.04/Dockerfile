@@ -24,6 +24,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /usr/src/TCGStorageAPI
 COPY . .
+RUN ln -s /usr/bin/make /usr/bin/gmake
 RUN python3 setup.py opensea
 RUN python3 setup.py build
 RUN cp -r build/lib.linux-x86_64-3.6/TCGstorageAPI /usr/local/lib/python3.6/site-packages/.

@@ -71,7 +71,7 @@ class Sedcfg(object):
             dev:Device handle of the drive.
         '''
 
-        os_type = {'linux2':self.linux_platform,'linux':self.linux_platform, 'win32':self.windows_platform}
+        os_type = {'linux2':self.linux_platform,'linux':self.linux_platform, 'win32':self.windows_platform, 'freebsd12':self.freebsd_platform}
         os_type[sys.platform](dev)
 
         logging.basicConfig(
@@ -85,7 +85,7 @@ class Sedcfg(object):
         self.keymanager = keymanager.KeyManager()
 
         # Build the SED object for the drive
-        self.sed = Sed(dev, callbacks=self)
+        self.sed = Sed(self.devname, callbacks=self)
         for key, val in list(self.cred_table.items()):
             self.keymanager.setKey(key, val)
 
@@ -129,14 +129,27 @@ class Sedcfg(object):
 
         drive_number = devname[-1:]
         self.devname = "\\\\.\\PhysicalDrive" + drive_number
-
+        
+    def freebsd_platform(self, devname):
+        '''
+        The function to initialize parameters for the bsd  platorm.
+        
+        Parameters:
+            devanme:Device handle of the drive.
+        '''
+        
+        self.log_filename = os.path.join(os.path.dirname(__file__), 'sedcfg.log')   
+        self.devname = devname 
+    
     def TlsOperation(self, args=None):
         '''
         The function to enable and disable TLS on the drive.
         Parameters:
             args - Commandline arguments,i.e enable/disable
         '''
-
+        if sys.platform=="win32":
+            print("Tls support not provided for Windows")
+            return False
         if self.BandLayout.authority[1] == 'Admin1'and self.sed.checkPIN(self.BandLayout.authority[0], self.sed.mSID) == True:
             print("Please perform operation changecreds before Tls enable")
             return False
@@ -221,7 +234,7 @@ class Sedcfg(object):
         # Change PIN of Admin to a new PIN from default value
         good = self.sed.changePIN(self.BandLayout.authority[0], self.keymanager.getKey(self.BandLayout.authority[0]), (None, self.initial_cred))
         if good is True:
-            if self.BandLayout.authority[1] is 'Admin1':
+            if self.BandLayout.authority[1] == 'Admin1':
             # Activate the Locking SP of the drive only for OPAL case
                 if self.sed.activate(self.BandLayout.authority[0]) == False:
                     return False
@@ -258,7 +271,7 @@ class Sedcfg(object):
 
         # Change pin of band authorities to a new value
         for (obj, auth) in zip(self.BandLayout.auth_objs[1:], self.BandLayout.authority[2:]):
-            if self.BandLayout.authority[1] is 'Admin1':
+            if self.BandLayout.authority[1] == 'Admin1':
                 auth = 'Admin1'
                 self.initial_cred = self.keymanager.getKey(auth)
             if self.sed.changePIN(auth, self.keymanager.getKey(obj), (None, self.initial_cred), obj) == False:
@@ -287,12 +300,12 @@ class Sedcfg(object):
             print("Take ownership of  the drive before configuring the drive")
             return False
         # Enable band and set ranges for band
-        if self.BandLayout.authority[1] is 'Admin1':
+        if self.BandLayout.authority[1] == 'Admin1':
             auth = 'Admin1'
         else:
             auth = 'BandMaster' + args.Bandno
 
-        if auth is 'Admin1' and args.Bandno == '0':
+        if auth == 'Admin1' and args.Bandno == '0':
             print("Global range not present in Opal drives")
             return False
 
@@ -307,7 +320,7 @@ class Sedcfg(object):
         configure = self.sed.setRange(auth, int(args.Bandno), authAs=(auth, self.keymanager.getKey(auth)), RangeStart=int(args.RangeStart) if args.RangeStart is not None else None, RangeLength=int(args.RangeLength) if args.RangeLength is not None else None,
                                       ReadLockEnabled=1, WriteLockEnabled=1, LockOnReset=args.LockOnReset,
                                       ReadLocked=0, WriteLocked=0)
-        if auth is 'Admin1' and configure is True:
+        if auth == 'Admin1' and configure is True:
         # Give access to users to read and write unlock range only in OPAL case, Bands are assigned to authorities by default in case of Enterprise.
             range_objs = ['ACE_Locking_Range1_Set_RdLocked', 'ACE_Locking_Range1_Set_WrLocked',
              'ACE_Locking_Range2_Set_RdLocked', 'ACE_Locking_Range2_Set_WrLocked']
@@ -392,7 +405,7 @@ class Sedcfg(object):
             print("Take ownership of  the drive and configure band before lock/unlock")
             return False
 
-        if args.bandno == '0' and self.BandLayout.authority[1] is 'Admin1':
+        if args.bandno == '0' and self.BandLayout.authority[1] == 'Admin1':
             print("Global range not present in Opal drives")
             return False
 
@@ -414,7 +427,7 @@ class Sedcfg(object):
                 return True
 
         # Perform a lock-unlock on the range
-        auth = 'User' + args.bandno  if self.BandLayout.authority[1] is 'Admin1' else 'BandMaster' + args.bandno
+        auth = 'User' + args.bandno  if self.BandLayout.authority[1] == 'Admin1' else 'BandMaster' + args.bandno
         lock_unlock = self.sed.setRange(auth, int(args.bandno), authAs=(auth, self.keymanager.getKey(auth)), ReadLocked=lock_unlock, WriteLocked=lock_unlock)
         if lock_unlock == True:
             print("Band{} {}ed successfully by {}".format(args.bandno, args.lockunlock, auth))

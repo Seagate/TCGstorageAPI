@@ -24,11 +24,17 @@
 #include <fcntl.h>
 #if !defined(_WINDOWS)
 #include <sys/ioctl.h>
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <cam/scsi/scsi_sg.h>
+#else
 #include <scsi/sg.h>
 #include <scsi/scsi_ioctl.h>
 #include <linux/bsg.h>
 #include <linux/kernel.h>
 #include <alloca.h>
+#endif
 #include <unistd.h>
 #endif
 #include <list>
@@ -40,6 +46,7 @@
 
 #ifndef SG_SCSI_RESET_TARGET
 #define SG_SCSI_RESET_TARGET 4
+#define SG_SCSI_RESET_DEVICE 1
 #endif
 
 namespace Tcg {

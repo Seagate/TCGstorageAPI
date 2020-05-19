@@ -165,7 +165,7 @@ class Sedcfg(object):
             psk = self.sed.getPskEntry(entryId)
             if psk is None:
                 print("Drive doesn't support TLS")
-                return True
+                return False
             if psk.Enabled == True and int(psk.CipherSuite,16) == PskCipherSuites.Value(self.sed.cipherSuite):
                 if args.enabledisable == 'enable':
                     print("Tls already enabled")

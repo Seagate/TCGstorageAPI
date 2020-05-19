@@ -62,6 +62,11 @@ class Sedcfg(object):
         'BandMaster1':  'BANDMASTER1',
         'BandMaster2':  'BANDMASTER2'
     }
+    
+    #NOT_FIPS --> Drive is not a FIPS drive
+    #FIPS_MODE --> Drive is a Fips drive and operating in FIPS mode
+    #NOT_FIPS_MODE -->Drive is a Fips drive and is not operating in FIPS mode/non-deterministic
+    Fips_status = ('NOT_FIPS','FIPS_MODE','NOT_FIPS_MODE')
 
     def __init__(self, dev):
         '''
@@ -346,7 +351,10 @@ class Sedcfg(object):
         '''
         self.logger.debug('Enabling FIPS mode')
         # Retrieve FIPS status
-        if self.fips_status(self.sed) is True:
+        status = self.fips_status(self.sed)
+        if status == "NOT_FIPS":
+            return False
+        elif status == "FIPS_MODE":
             return True
 
         # Check the credentials of authorities to confirm ownership
@@ -373,7 +381,7 @@ class Sedcfg(object):
             return False
 
         # Disable Makers Authority
-        if self.sed.enableAuthority('SID', False, 'C_PIN_Makers') == False:
+        if self.sed.enableAuthority('SID', False, 'Makers') == False:
             print("Failed to disable Makers Authority")
             return False
 
@@ -518,18 +526,22 @@ class Sedcfg(object):
         sed - SED object
 
         Returns:
-        True - If drive is FIPS and drive not operating in FIPS mode.
-        False - If drive is not FIPS and if drive is FIPS and operating in FIPS mode.
+        NOT_FIPS: Drive is not a FIPS drive
+        FIPS_MODE: Drive is a Fips drive and operating in FIPS mode
+        NOT_FIPS_MODE: Drive is a Fips drive and is not operating in FIPS mode/non-deterministic
         '''
         # Checking Fips Compliance Descriptor
         if sed.fipsCompliance == None or sed.fipsCompliance["standard"] != "FIPS 140-2" and sed.fipsCompliance["standard"] != "FIPS 140-3":
-            print("Drive doesn't support FIPS 140-2 or FIPS 140-3 Standard")
-            return True
+            print ("Drive doesn't support FIPS 140-2 or FIPS 140-3 Standard")
+            return Sedcfg.Fips_status[0]
 
-        # Checking FIPS approved mode
+        #This uses Seagate Vendor Unique functionality, and may not be supported by other vendors
+        #May not work on older Seagate models
         if sed.fipsApprovedMode is True:
-            print("Drive operating in FIPS mode")
-            return True
+            print ("Drive operating in FIPS mode")
+            return Sedcfg.Fips_status[1]
+        else:
+            return Sedcfg.Fips_status[2]
 
 
 class sedbandlayout(object):

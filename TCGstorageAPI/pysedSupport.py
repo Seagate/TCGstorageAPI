@@ -74,7 +74,7 @@ baseAuthIds = {
     "Admin1":           0x0000000900010001,
 }
 
-adminAuths = [ baseAuthIds[n] for n in ('SID', 'Makers', 'PSID')]
+adminAuths = [ baseAuthIds[n] for n in ('SID', 'Makers', 'PSID','Anybody')]
 
 baseObjectIds = {
     "ThisSP":           1,
@@ -94,7 +94,7 @@ baseObjectIds = {
     'C_PIN_SID':           0x0000000900000001,# C_PIN_Object
     'C_PIN_EraseMaster':   0x0000000900008401,
     'C_PIN_BandMaster##':  0x0000000900008001,
-    'C_PIN_Makers':        0x0000000900000003,
+    'Makers':              0x0000000900000003,
     'C_PIN_Admin1':        0x0000000B00010001,
     'C_PIN_User##':        0x0000000B00030000,
     'SOM':                 0x0001000700000000,

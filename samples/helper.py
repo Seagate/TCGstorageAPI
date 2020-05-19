@@ -30,6 +30,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 from OpenSSL import crypto
 from cryptography.hazmat.backends import default_backend
+import mimetypes
+
 
 class VerifyIdentity(object):
     """
@@ -39,7 +41,7 @@ class VerifyIdentity(object):
     cert: Certificate pulled from the device
     """
 
-    def __init__(self,cert):
+    def __init__(self, cert):
         self.drive_cert = cert
 
     def validate_drive_cert(self):
@@ -48,16 +50,20 @@ class VerifyIdentity(object):
         The function to perform drive certificate validation.
 
         '''
+        ##Lambda function to verify the content of the certificate. If the certificate encoding is binary it can assigned as der type else PEM
+        textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+        is_binary_string = lambda bytes: bool(bytes.translate(None, textchars))  
+           
         driveCert_PEM = DER_cert_to_PEM_cert(bytes(self.drive_cert))
         # Search for and Process the M_TDCI Certificate
         m_tdci_cert_filename = self.find_certificate_parent(self.drive_cert)
         m_tdci_cert_binary = self.read_der_cert(m_tdci_cert_filename)
-        m_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(m_tdci_cert_binary))
+        m_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(m_tdci_cert_binary)) if is_binary_string(m_tdci_cert_binary) else bytes(m_tdci_cert_binary)
 
         # Search for and Process the CTDCI Certificate
         c_tdci_cert_filename = self.find_certificate_parent(m_tdci_cert_binary)
         c_tdci_cert_binary = self.read_der_cert(c_tdci_cert_filename)
-        c_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(c_tdci_cert_binary))
+        c_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(c_tdci_cert_binary)) if is_binary_string(c_tdci_cert_binary) else bytes(c_tdci_cert_binary)
 
         url_data = urllib2.urlopen("http://drivetrust.seagate.com/cert/DTRoot.cer")
         root_cert_binary = url_data.read()
@@ -71,7 +77,7 @@ class VerifyIdentity(object):
         else:
             raise Exception("ERROR: Issue verifying Certificate chain, do NOT trust")
 
-    def validate_signature(self,original_string,signature):
+    def validate_signature(self, original_string, signature):
         '''
 
         The function to validate the digital signature of the drive
@@ -85,7 +91,7 @@ class VerifyIdentity(object):
         x509 = crypto.load_certificate(crypto.FILETYPE_PEM, DER_cert_to_PEM_cert(bytes(self.drive_cert)))
         public_key = x509.get_pubkey()
         try:
-            crypto.verify(x509,signature,original_string,'sha256')
+            crypto.verify(x509, signature, original_string, 'sha256')
             print "Drive signature verified successfully"
             return True
         except crypto.Error:
@@ -106,7 +112,12 @@ class VerifyIdentity(object):
         That is TBD and the proper way to do it. Still looking into how to implement.
 
         '''
-        c_cert = x509.load_der_x509_certificate(bytes(child_certificate), default_backend())
+        ##Lambda function to verify the content of the certificate. If the certificate encoding is binary it can assigned as der type else PEM
+        textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+        is_binary_string = lambda bytes: bool(bytes.translate(None, textchars))
+
+        c_cert = x509.load_der_x509_certificate(bytes(child_certificate), default_backend()) if is_binary_string(child_certificate) else x509.load_pem_x509_certificate(bytes(child_certificate), default_backend())
+
         for ext in c_cert.extensions:
             # Look for the Certificate Extension that lists the Issuer Certificate URL
             str_ext = str(ext)

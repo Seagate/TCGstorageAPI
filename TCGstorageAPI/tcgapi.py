@@ -418,10 +418,10 @@ class Sed(pysed.Sed):
 
     def get_MEK(self, rangeNo, auth, authAs=None):
         '''
-        Obtain the Media Encrytion key MEK from the drive. Support provided only for Opal2.0.
+        Obtain the Media Encrytion Key (MEK) UID for the range from the Locking Table. Support provided only for Opal2.0.
 
         Parameters:
-          rangeNo         - The band to modify. (required)
+          rangeNo         - The band number. (required)
           auth            - Default auth in case if authAs is None
 
         Optional Parameters:
@@ -657,9 +657,9 @@ class Sed(pysed.Sed):
         currentFuncName = lambda n = 0: sys._getframe(n + 1).f_code.co_name
         for key, value in kwargs.items():
             if key == 'LockOnReset':
-                value = [0] if 'LockOnReset' == True else []
+                value = [0] if kwargs.get('LockOnReset') == True else []
             if key == 'PortLocked':
-                value = 1 if 'PortLocked' == True else 0
+                value = 1 if kwargs.get('PortLocked') == True else 0
             self.token.update({key:value})
         arg = tcgSupport.tokens(self)
         status, rv, kwrv = self.invoke(port, 'Set', arg, sp='AdminSP',

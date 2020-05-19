@@ -62,6 +62,11 @@ class Sedcfg(object):
         'BandMaster2':  'BANDMASTER2'
     }
 
+    #NOT_FIPS --> Drive is not a FIPS drive
+    #FIPS_MODE --> Drive is a Fips drive and operating in FIPS mode
+    #NOT_FIPS_MODE -->Drive is a Fips drive and is not operating in FIPS mode/non-deterministic
+    Fips_status = ('NOT_FIPS','FIPS_MODE','NOT_FIPS_MODE')
+    
     def __init__(self, dev):
         '''
         The constructor for the class.
@@ -164,7 +169,7 @@ class Sedcfg(object):
             psk = self.sed.getPskEntry(entryId)
             if psk is None:
                 print "Drive doesn't support TLS"
-                return True
+                return False
             if psk.Enabled == True and psk.CipherSuite == self.sed.cipherSuite:
                 if args.enabledisable == 'enable':
                     print "Tls already enabled"
@@ -343,9 +348,13 @@ class Sedcfg(object):
             True: Successfull completion of enable fips.
             False: Failure to enable fips.
         '''
+        
         self.logger.debug('Enabling FIPS mode')
         # Retrieve FIPS status
-        if self.fips_status(self.sed) is True:
+        status = self.fips_status(self.sed)
+        if status == "NOT_FIPS":
+            return False
+        elif status == "FIPS_MODE":
             return True
 
         # Check the credentials of authorities to confirm ownership
@@ -359,7 +368,7 @@ class Sedcfg(object):
             auth, start = 'Admin1', 1
         else:
             auth, start = 'Anybody', 0
-
+        
         lock_enabled = False
         for bandnumber in range (start, 3):
             locking_info, status = self.sed.getRange(bandnumber, auth)
@@ -372,10 +381,10 @@ class Sedcfg(object):
             return False
 
         # Disable Makers Authority
-        if self.sed.enableAuthority('SID', False, 'C_PIN_Makers') == False:
+        if self.sed.enableAuthority('SID', False, 'Makers') == False:
             print "Failed to disable Makers Authority"
             return False
-
+        
         # Disable Firmware Download
         for uid in self.sed.ports.iterkeys():
             p = self.sed.getPort(uid)
@@ -507,7 +516,7 @@ class Sedcfg(object):
         else:
             print "Wrong PSID"
             return False
-
+    
     @staticmethod
     def fips_status(sed):
         '''
@@ -517,18 +526,22 @@ class Sedcfg(object):
         sed - SED object
 
         Returns:
-        True - If drive is FIPS and drive not operating in FIPS mode.
-        False - If drive is not FIPS and if drive is FIPS and operating in FIPS mode.
+        NOT_FIPS: Drive is not a FIPS drive
+        FIPS_MODE: Drive is a Fips drive and operating in FIPS mode
+        NOT_FIPS_MODE: Drive is a Fips drive and is not operating in FIPS mode/non-deterministic
         '''
         # Checking Fips Compliance Descriptor
         if sed.fipsCompliance == None or sed.fipsCompliance["standard"] != "FIPS 140-2" and sed.fipsCompliance["standard"] != "FIPS 140-3":
             print "Drive doesn't support FIPS 140-2 or FIPS 140-3 Standard"
-            return True
+            return Sedcfg.Fips_status[0]
 
-        # Checking FIPS approved mode
+        #This uses Seagate Vendor Unique functionality, and may not be supported by other vendors
+        #May not work on older Seagate models
         if sed.fipsApprovedMode is True:
             print "Drive operating in FIPS mode"
-            return True
+            return Sedcfg.Fips_status[1]
+        else:
+            return Sedcfg.Fips_status[2]
 
 
 class sedbandlayout(object):

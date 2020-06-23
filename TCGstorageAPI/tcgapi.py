@@ -283,10 +283,10 @@ class Sed(pysed.Sed):
             auth, cred = authAs[:]
             authAs = (auth, cred)
         else:
-            tcgSupport.fail(msg='Unknown authAs parameter type: ' + str(authAs))
+            tcgSupport.fail(self.callbacks.logger, self.callbacks.devname, StatusCode, msg='Unknown authAs parameter type: ' + str(authAs))
 
         if not isinstance(authAs, tuple):
-            tcgSupport.fail(msg='authAs parameter normalization error: ' + str(authAs))
+            tcgSupport.fail(self.callbacks.logger, self.callbacks.devname, StatusCode, msg='authAs parameter normalization error: ' + str(authAs))
 
         auth, cred = authAs[:]
         if auth is None:
@@ -433,7 +433,8 @@ class Sed(pysed.Sed):
             useTls=True)
         if status != StatusCode.Success:
             return self.fail(rv, status)
-        return True
+        kwrv['K_AES_256_Range'+str(rangeNo)+'_Key_UID'] = kwrv.pop(kwrv.keys()[0])
+        return SedObject(kwrv), True
 
     def erase(self, rangeNo, authAs=None):
         '''
@@ -457,7 +458,7 @@ class Sed(pysed.Sed):
         Performs a secure erase of the range. Support provided only for Opal2.0.
 
         Parameters:
-          range_key - Key Object value
+          range_key - Key Object value as an hexadecimal number
 
         Optional parameters:
           authAs - tuple of authority, credential, or AuthAs structure.
@@ -556,7 +557,7 @@ class Sed(pysed.Sed):
         Support provided only for Enterprise.
         Optional named parameters:
           authAs - tuple of authority, credential, or AuthAs structure.  Defaults to (Anybody).
-        Returns the DataStore object of non-volatile values or None on error.
+        Returns the DataStore object of non-volatile values, None when datastore is empty, False on error.
         '''
         authAs = self._getAuthAs(authAs, auth)
         if self.checkPIN(authAs[0], self.mSID) == True:
@@ -676,6 +677,7 @@ class Sed(pysed.Sed):
 
         Parameters:
           auth    -  An Authority string or numeric value identifying the authority to modify.
+          obj     -  Authority object on which the operation is being performed.Authority object on which the operation is being performed.
         Optional named parameters:
           authAs  - tuple of authority and credential.
 
@@ -683,6 +685,7 @@ class Sed(pysed.Sed):
         '''
         status, rv, kwrv = self.invoke(obj, 'Get',
             authAs=self._getAuthAs(authAs, auth))
+
         if status != StatusCode.Success:
             return self.fail(rv, status)
 	
@@ -896,12 +899,14 @@ class Sed(pysed.Sed):
         if self.SSC == 'Opalv2':
             for key, val in c_tls_psk_table.iteritems():
                 kwrv[key] = kwrv[c_tls_psk_table[key]]
-
+            for key in kwrv.keys():
+                if not isinstance(key, str):
+                    del kwrv[key]
         if 'CipherSuite' in kwrv:
             kwrv['CipherSuite'] = PskCipherSuites.Name(kwrv['CipherSuite'])
         return SedObject(kwrv)
 
-    def setPskEntry(self, authority, psk, authAs=None, **kwargs):
+    def setPskEntry(self, psk, authAs=None, **kwargs):
         '''
         Modifies a TLS_PSK record for both SPs.
         Used optionally to provide support for TLS Secure Messaging.
@@ -910,7 +915,8 @@ class Sed(pysed.Sed):
           psk  - the ordinate of the entry to write (integer), UID or previously retrieved TlsPsk object.
           auth - An Authority string or numeric value identifying the authority to modify.
         Optional named parameters:
-          authAs         - Tuple of authority, credential, or AuthAs structure.
+          authAs         - List of Tuple of authority, credential, or AuthAs structure.
+                            [(auth1,cred),(auth2,cred)]
                            If provided, only the SP specified will be modified.
           Enabled        - Determines if this key is enabled.
           PSK            - The preshared key.
@@ -922,19 +928,22 @@ class Sed(pysed.Sed):
             psk = 'TLS_PSK_Key%d' % psk
         elif isinstance(psk, SedObject):
             psk = psk.Name
+            if self.SSC == 'Opalv2':
+                entry = int(filter(str.isdigit, psk))
+                psk = 'TLS_PSK_Key'+str(entry-1)
 
         self.token.update({'Enabled':kwargs.get('Enabled'), 'PSK':kwargs.get('PSK'), 'CipherSuite':kwargs['CipherSuite']})
         arg = tcgSupport.tokens(self)
         sps = ['AdminSP', 'LockingSP']
 
-        for sp, auth in zip(sps, authority):
-            authAs = (self._getAuthAs(authAs, auth))
-            if self.checkPIN(auth, self.mSID) == True:
-                authAs = (auth, self.mSID)
+        for sp, authAs in zip(sps, authAs):
+            authAs = (self._getAuthAs(authAs, authAs[0]))
+            if self.checkPIN(authAs[0], self.mSID) == True:
+                authAs = (authAs[0], self.mSID)
             status, rv, kwrv = self.invoke(psk, 'Set', arg,
                 authAs=authAs, sp=sp,
                 **self.token)
             if status != StatusCode.Success:
                 return self.fail(rv, status)
-            authAs = None
+        self.token.clear()
         return True

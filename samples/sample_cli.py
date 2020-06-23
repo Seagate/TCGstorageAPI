@@ -158,7 +158,7 @@ class Sedcfg(object):
             print "Please perform operation changecreds before Tls enable"
             return False
 
-        auth = (self.BandLayout.authority[0], self.BandLayout.authority[1])
+        authAs = [(self.BandLayout.authority[0], None), (self.BandLayout.authority[1], None)]
         key = tcgSupport.getPsk(self.sed)
         if key == None:
             print "Pre-Shared Key not generated"
@@ -175,10 +175,10 @@ class Sedcfg(object):
                     print "Tls already enabled"
                     return True
                 if args.enabledisable == 'disable':
-                    return self.sed.setPskEntry(auth, toUse, Enabled=False, CipherSuite=self.sed.cipherSuite, PSK=key)
+                    return self.sed.setPskEntry(toUse, authAs, Enabled=False, CipherSuite=self.sed.cipherSuite, PSK=key)
 
         if args.enabledisable == 'enable':
-            return self.sed.setPskEntry(auth, toUse, Enabled=True, CipherSuite=self.sed.cipherSuite, PSK=key)
+            return self.sed.setPskEntry(toUse, authAs, Enabled=True, CipherSuite=self.sed.cipherSuite, PSK=key)
         elif args.enabledisable == 'disable':
             print " TLS already disabled on the drive"
             return True
@@ -242,7 +242,7 @@ class Sedcfg(object):
             # Activate the Locking SP of the drive only for OPAL case
                 if self.sed.activate(self.BandLayout.authority[0]) == False:
                     return False
-                self.initial_cred = tcgSupport.getCred(self.keymanager,'SID')
+                self.initial_cred = tcgSupport.getCred(self.keymanager, 'SID')
             # Change PIN of Admin of Locking SP
             if self.sed.changePIN(self.BandLayout.authority[1], self.keymanager.getKey(self.BandLayout.authority[1]), (None, self.initial_cred), self.BandLayout.auth_objs[0]) == False:
                return False

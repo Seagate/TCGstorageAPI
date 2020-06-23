@@ -236,7 +236,7 @@ On linux systems, to allow the security commands to reach the SATA drives, set t
 
 #### Windows 10
 
-Change directory to tcgstorageapi and copy the folder TCGstorageAPI to C:\Python38\Lib\site-packages. Copy pysed\Make\VS.2017\(platform)\(build type)\pysed.sln to C:\Python38\Lib\site-packages\TCGstorageAPI.
+Change directory to tcgstorageapi and copy the folder TCGstorageAPI to C:\Python38\Lib\site-packages. Copy pysed\Make\VS.2017\(platform)\(build type)\pysed.pyd to C:\Python38\Lib\site-packages\TCGstorageAPI.
 
 **Alternatively, the package can be built and installed using the Dockerfile**.
 

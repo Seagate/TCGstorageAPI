@@ -145,7 +145,8 @@ def fromSerialized(data):
     '''
     External use constructor.  Retrieve dataStore from data serialized from the SED DataStore.
 
-    Returns: A DataStore object containing NVM data or fresh data if the dataStore was not retrieved.
+   Returns: A DataStore object containing NVM data or fresh data if the dataStore was not retrieved
+            None if empty, False on error.
     '''
     if len(data) == 0:
         return None
@@ -157,8 +158,12 @@ def fromSerialized(data):
             nvdata = loads(pickled)
             if hash == hmac.new(nvdata['iv'], pickled, hashlib.sha256).digest():
                 return nvdata
-        except:
-            pass
+            else:
+                print("Failed to verify data returned from datastore")
+                return False
+        except EOFError:
+            print("Failed to convert data to a python object")
+            return False
     return None
 
 def getCred(keymanager, auth):

@@ -159,7 +159,7 @@ class Sedcfg(object):
             print("Please perform operation changecreds before Tls enable")
             return False
 
-        auth = (self.BandLayout.authority[0], self.BandLayout.authority[1])
+        authAs = [(self.BandLayout.authority[0], None), (self.BandLayout.authority[1], None)]
         key = tcgSupport.getPsk(self.sed)
         if key == None:
             print("Pre-Shared Key not generated")
@@ -176,10 +176,10 @@ class Sedcfg(object):
                     print("Tls already enabled")
                     return True
                 if args.enabledisable == 'disable':
-                    return self.sed.setPskEntry(auth, toUse, Enabled=False, CipherSuite=self.sed.cipherSuite, PSK=key)
+                    return self.sed.setPskEntry(toUse, authAs, Enabled=False, CipherSuite=self.sed.cipherSuite, PSK=key)
 
         if args.enabledisable == 'enable':
-            return self.sed.setPskEntry(auth, toUse, Enabled=True, CipherSuite=self.sed.cipherSuite, PSK=key)
+            return self.sed.setPskEntry(toUse, authAs, Enabled=True, CipherSuite=self.sed.cipherSuite, PSK=key)
         elif args.enabledisable == 'disable':
             print(" TLS already disabled on the drive")
             return True
@@ -439,7 +439,6 @@ class Sedcfg(object):
         lock_unlock = self.sed.setRange(auth, int(args.bandno), authAs=(auth, self.keymanager.getKey(auth)), ReadLocked=lock_unlock, WriteLocked=lock_unlock)
         if lock_unlock == True:
             print("Band{} {}ed successfully by {}".format(args.bandno, args.lockunlock, auth))
-            #print(self.sed.getRange(int(args.bandno), self.BandLayout.authority[1])[0])
             return True
         print("Range not configured properly")
         return False

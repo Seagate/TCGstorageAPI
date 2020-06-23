@@ -436,7 +436,8 @@ class Sed(pysed.Sed):
             useTls=True)
         if status != StatusCode.Success:
             return self.fail(rv, status)
-        return True
+        kwrv['K_AES_256_Range' + str(rangeNo) + '_Key_UID'] = kwrv.pop(kwrv.keys()[0])
+        return SedObject(kwrv), True
 
     def erase(self, rangeNo, authAs=None):
         '''
@@ -460,7 +461,7 @@ class Sed(pysed.Sed):
         Performs a secure erase of the range. Support provided only for Opal2.0.
 
         Parameters:
-          range_key - Key Object value
+          range_key - Key Object value as an hexadecimal number
 
         Optional parameters:
           authAs - tuple of authority, credential, or AuthAs structure.
@@ -559,7 +560,7 @@ class Sed(pysed.Sed):
         Support provided only for Enterprise.
         Optional named parameters:
           authAs - tuple of authority, credential, or AuthAs structure.  Defaults to (Anybody).
-        Returns the DataStore object of non-volatile values or None on error.
+        Returns the DataStore object of non-volatile values, None when datastore is empty, False on error.
         '''
         authAs = self._getAuthAs(authAs, auth)
         if self.checkPIN(authAs[0], self.mSID) == True:
@@ -682,6 +683,7 @@ class Sed(pysed.Sed):
         Parameters:
           auth    -  An Authority string or numeric value identifying the authority to modify.
         Optional named parameters:
+          obj     - Authority object on which the operation is being performed.Authority object on which the operation is being performed.
           authAs  - tuple of authority and credential.
 
         Returns True if the authority is enabled.
@@ -910,12 +912,16 @@ class Sed(pysed.Sed):
         if self.SSC == 'Opalv2':
             for key, val in c_tls_psk_table.items():
                 str_kwrv[key] = str_kwrv[c_tls_psk_table[key]]
+                
+            for key in list(str_kwrv):
+                if not isinstance(key, str):
+                    del str_kwrv[key]
 
         if 'CipherSuite' in kwrv:
             str_kwrv['CipherSuite'] = PskCipherSuites.Name(str_kwrv['CipherSuite'])
         return SedObject(str_kwrv)
 
-    def setPskEntry(self, authority, psk, authAs=None, **kwargs):
+    def setPskEntry(self, psk, authAs=None, **kwargs):
         '''
         Modifies a TLS_PSK record for both SPs.
         Used optionally to provide support for TLS Secure Messaging.
@@ -924,8 +930,8 @@ class Sed(pysed.Sed):
           psk  - the ordinate of the entry to write (integer), UID or previously retrieved TlsPsk object.
           auth - An Authority string or numeric value identifying the authority to modify.
         Optional named parameters:
-          authAs         - Tuple of authority, credential, or AuthAs structure.
-                           If provided, only the SP specified will be modified.
+           authAs        - List of Tuple of authority, credential, or AuthAs structure.
+                            [(auth1,cred),(auth2,cred)]
           Enabled        - Determines if this key is enabled.
           PSK            - The preshared key.
           CipherSuite    - The TLS CipherSuite using this entry. One of the values in PskCipherSuites.
@@ -936,19 +942,22 @@ class Sed(pysed.Sed):
             psk = 'TLS_PSK_Key%d' % psk
         elif isinstance(psk, SedObject):
             psk = psk.Name
+            if self.SSC == 'Opalv2':
+                entry = int(psk[-1])
+                psk = 'TLS_PSK_Key'+str(entry-1)
 
         self.token.update({'Enabled':kwargs.get('Enabled'), 'PSK':kwargs.get('PSK'), 'CipherSuite':kwargs['CipherSuite']})
         arg = tcgSupport.tokens(self)
         sps = ['AdminSP', 'LockingSP']
 
-        for sp, auth in zip(sps, authority):
-            authAs = (self._getAuthAs(authAs, auth))
-            if self.checkPIN(auth, self.mSID) == True:
-                authAs = (auth, self.mSID)
+        for sp, authAs in zip(sps, authAs):
+            authAs = (self._getAuthAs(authAs, authAs[0]))
+            if self.checkPIN(authAs[0], self.mSID) == True:
+                authAs = (authAs[0], self.mSID)
             status, rv, kwrv = self.invoke(psk, 'Set', arg,
                 authAs=authAs, sp=sp,
                 **self.token)
             if status != StatusCode.Success:
                 return self.fail(rv, status)
-            authAs = None
+        self.token.clear()
         return True

@@ -1,1 +1,0 @@
-bison --no-lines -l   parser.ypp

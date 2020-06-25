@@ -436,7 +436,7 @@ class Sed(pysed.Sed):
             useTls=True)
         if status != StatusCode.Success:
             return self.fail(rv, status)
-        kwrv['K_AES_256_Range' + str(rangeNo) + '_Key_UID'] = kwrv.pop(kwrv.keys()[0])
+        kwrv['K_AES_256_Range' + str(rangeNo) + '_Key_UID'] = kwrv.pop(list(kwrv.keys())[0])
         return SedObject(kwrv), True
 
     def erase(self, rangeNo, authAs=None):

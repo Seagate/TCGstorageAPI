@@ -386,7 +386,8 @@ static const char * fipsAMDocs =
 				"for devices reporting this state.";
 bool Sed::getFipsApprovedMode() {
 	discovery.refresh(transport);
-	return discovery.locking && discovery.locking->fipsApprovedMode;
+	int fips_operatingmode =(int)discovery.hdr->vendor[14] & 1;
+	return fips_operatingmode;
 }
 
 // Helper routine used to encode function parameters.

@@ -1,9 +1,9 @@
 [submodule "opensea-common"]
 	path = opensea-common
-	url = https://github.com/Seagate/opensea-common.git
+	url = https://github.com/FUTURACyber/opensea-common.git
 [submodule "opensea-transport"]
 	path = opensea-transport
-	url = https://github.com/Seagate/opensea-transport.git
+	url = https://github.com/FUTURACyber/opensea-transport.git
 [submodule "opensea-operations"]
 	path = opensea-operations
-	url = https://github.com/Seagate/opensea-operations.git
+	url = https://github.com/FUTURACyber/opensea-operations.git

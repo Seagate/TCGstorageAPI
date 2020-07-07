@@ -202,7 +202,7 @@ class SedObject(object):
         return result
 
 
-class Sed(pysed.Sed):
+class Sed(object):
     '''
     classdocs
     Establishes communications to the SED functionality of a drive.
@@ -234,13 +234,13 @@ class Sed(pysed.Sed):
           callbacks   - A class that handles the methods in the SedCallbacksStub class
         '''
         self.callbacks = kwargs.get('callbacks', SedCallbacksStub)
-        if isinstance(self.callbacks, type):
-            self.callbacks = self.callbacks(**kwargs)
         if hasattr(self.callbacks, 'logger'):
             kwargs['logger'] = self.callbacks.logger
-        else:
+        elif kwargs.get('logger') is None:
             warnings.warn("Logger not initialized and passed into the TCGAPI")
-
+        self.keymanager = self.callbacks.keymanager if hasattr(self.callbacks, 'keymanager') else kwargs.get('keymanager', None)
+        self.logger = kwargs.get('logger', None)
+        
         if isinstance(dev, int):
             dev = hex(dev)
         if '/' not in dev:
@@ -248,14 +248,128 @@ class Sed(pysed.Sed):
                 if dev[1] != 'x':
                     dev = '0x' + dev
                 dev = "/dev/disk/by-id/wwn-" + dev
-
-        super(Sed, self).__init__(dev, pysedSupport.getUidTables, PskCipherSuites, kwargs)
-
+        
+        self.devname = dev
+        self.__pysed = pysed.Sed(dev, pysedSupport.getUidTables, PskCipherSuites, kwargs)
         self.token = {}
+        
         if hasattr(tcgSupport, 'configureTls'):
-            cipherSuites = self._cipherSuites()
+            cipherSuites = self.__pysed._cipherSuites()
             if cipherSuites is not None:
-                tcgSupport.configureTls(self, [PskCipherSuites.Name(s) for s in cipherSuites])
+                tcgSupport.configureTls(self, [PskCipherSuites.Name(s) for s in cipherSuites])          
+
+    @property
+    def wwn(self):
+        '''
+        Retrieve drive's world wide name
+        '''
+
+        return self.__pysed.wwn
+    
+    @property
+    def mSID(self):
+        '''
+        Retreive the drive's mSID.
+        Returns the mSID as a string or None upon error
+        '''
+
+        return self.__pysed.mSID
+    
+    @property
+    def SSC(self):
+        '''
+        Retrieve current drive's Security Subsystem Class
+        '''
+
+        return self.__pysed.SSC
+
+    @property
+    def ports(self):
+        '''
+        Retrieve Ports level 0 discovery information.
+        Returns a dictionary with key set to the Port Uid and value set to the current locked state (boolean.)
+        '''
+
+        return self.__pysed.ports
+
+    @property
+    def hasLockedRange(self):
+        '''
+        Returns True if any bands are currently locked
+        '''
+
+        return self.__pysed.hasLockedRange
+
+    @property
+    def maxLba(self):
+        '''
+        Retrieve drive's maximum addressable LBA
+        '''
+
+        return self.__pysed.maxLba
+
+    @property
+    def _debugPackets(self):
+        '''
+        Dump TCG packets in debug log
+        '''
+
+        self.__pysed._debugPackets
+    
+    @property
+    def fipsApprovedMode(self):
+        '''
+        Retrieves current discovery level 0 flag representing the device is operating in FIPS approved mode for 
+        devices reporting this state. This is a Seagate proprietary attribute. 
+        '''
+
+        return self.__pysed.fipsApprovedMode
+
+    @property 
+    def currentCipherSuite(self):
+        '''
+        Returns the current CipherSuite used for TLS secure messaging 
+        '''
+
+        return self.__pysed.currentCipherSuite    
+
+    def tcgReset(self):
+        '''
+        Resets the TCG Storage protocol stack state machine at the drive.
+        '''
+
+        self.__pysed.tcgReset()
+
+    def usePsk(self, uid, cipherSuite, psk):
+        '''
+        Configure the TLS PSK cipher suite to be used for communications.
+        The selected cipher suite is used during the handshake phase of the secure messaging protocol.
+        Parameters:
+        uid          - The Tls Entry UID used for the Tls psk_identity field.  
+        cipherSuite  - The Cipher Suite to use as defined by the tcgapi.PskCipherSuites enumeration.
+        None, to stop TLS communications.
+        psk          - The Pre-Shared Key to use.
+        psk2         - Optional PSK to use for the LockingSP
+
+        '''
+
+        self.__pysed.usePsk(uid, cipherSuite, psk)
+
+    def fipsCompliance(self):
+        '''
+        Read the FIPS Compliance Descriptor from the drive.
+        Returns None if FIPS Compliance Descriptor was not found.
+        Returns a dictionary when FIPS compliant with values from the 
+        TCG Security Compliance structure with the following keys/values:
+          standard           - 'FIPS 140-2' or 'FIPS 140-3'
+          securityLevel      - Security level value
+          hardwareVersion    - The hardware version string
+          descriptorVersion  - Descriptor version string
+          moduleName         - Module name
+
+        '''
+
+        return self.__pysed.fipsCompliance() 
 
     def close(self, authAs=None):
         '''
@@ -283,25 +397,26 @@ class Sed(pysed.Sed):
             auth, cred = authAs[:]
             authAs = (auth, cred)
         else:
-            tcgSupport.fail(msg='Unknown authAs parameter type: ' + str(authAs))
+             if self.logger is not None:
+                tcgSupport.fail(self.logger, self.devname, StatusCode, msg='Unknown authAs parameter type: ' + str(authAs))
 
-        if not isinstance(authAs, tuple):
-            tcgSupport.fail(msg='authAs parameter normalization error: ' + str(authAs))
+        if not isinstance(authAs, tuple) and self.logger is not None:
+            tcgSupport.fail(self.logger, self.devname, StatusCode, msg='authAs parameter normalization error: ' + str(authAs))
 
         auth, cred = authAs[:]
         if auth is None:
             if defAuth:
                 auth = defAuth
             else:
-                if hasattr(self.callbacks,'logger'):
-                    tcgSupport.getAuth(self.callbacks.logger,currentFuncName(1), defAuth)
+                if self.logger is not None:
+                    tcgSupport.getAuth(self.logger, currentFuncName(1), defAuth)
 
         if auth == 'Anybody':
             return auth
 
         if cred is None:
-            if hasattr(self.callbacks,'keymanager'):
-                cred = tcgSupport.getCred(self.callbacks.keymanager,auth)
+            if self.keymanager is not None:
+                cred = tcgSupport.getCred(self.keymanager, auth)
             else:
                 print ("Credentials not provided for the method"+' '+currentFuncName(1))
 
@@ -316,8 +431,8 @@ class Sed(pysed.Sed):
           cred - The credentials supplied to invoke() or returned from a
                  previous callback of this method.
         '''
-        if hasattr(self.callbacks,'logger'):
-            return tcgSupport.failedCred(self.callbacks.logger,auth, cred)
+        if self.logger is not None:
+            return tcgSupport.failedCred(self.logger, auth, cred)
 
     def fail(self, msg, status):
         '''
@@ -325,9 +440,9 @@ class Sed(pysed.Sed):
         msg - message to be displayed.
         status - Status of the operation being performed
         '''
-        if hasattr(self.callbacks,'logger'):
-            return tcgSupport.fail(self.callbacks.logger,self.callbacks.devname,StatusCode,op=currentFuncName(1), msg=msg, status=status)
-
+        if self.logger is not None:
+            return tcgSupport.fail(self.logger, self.devname, StatusCode, op=currentFuncName(1), msg=msg, status=status)
+        
     def getRange(self, rangeNo, auth, authAs=None):
         '''
         Reads a band from the drive.
@@ -344,7 +459,7 @@ class Sed(pysed.Sed):
         Consult setRange named parameters for attribute definitions.
         '''
 
-        status, rv, kwrv = self.invoke('Band%d' % rangeNo, 'Get',
+        status, rv, kwrv = self.__pysed.invoke('Band%d' % rangeNo, 'Get',
             authAs=self._getAuthAs(authAs, auth))
 
         if status != StatusCode.Success:
@@ -386,7 +501,7 @@ class Sed(pysed.Sed):
                 value = [0] if kwargs.get('LockOnReset') == str(True) else []
             self.token.update({key:value})
         arg = tcgSupport.tokens(self)
-        status, rv, kwrv = self.invoke('Band%d' % rangeNo, 'Set', arg,
+        status, rv, kwrv = self.__pysed.invoke('Band%d' % rangeNo, 'Set', arg,
             authAs=self._getAuthAs(authAs, auth),
             **self.token)
         self.token.clear()
@@ -411,7 +526,7 @@ class Sed(pysed.Sed):
             User = baseObjectIds['User##']
         else:
             User = baseObjectIds['User##'] + Userno
-        status, rv, kwrv = self.invoke(objectId, 'Set', (1, [(3, [("\x00\x00\x0C\x05", struct.pack(">Q", User)), ("\x00\x00\x0C\x05", struct.pack(">Q", User)), ("\x00\x00\x04\x0E", 1)])]),
+        status, rv, kwrv = self.__pysed.invoke(objectId, 'Set', (1, [(3, [("\x00\x00\x0C\x05", struct.pack(">Q", User)), ("\x00\x00\x0C\x05", struct.pack(">Q", User)), ("\x00\x00\x04\x0E", 1)])]),
                             authAs=self._getAuthAs(authAs, auth),
                             noNamed=True,
                             useTls=True)
@@ -430,7 +545,7 @@ class Sed(pysed.Sed):
         Optional Parameters:
         authAs           - Tuple of authority, credential, or AuthAs structure
         '''
-        status, rv, kwrv = self.invoke('Band%d' % rangeNo, 'Get', ([(3, 0x0A), (4, 0x0A)]),
+        status, rv, kwrv = self.__pysed.invoke('Band%d' % rangeNo, 'Get', ([(3, 0x0A), (4, 0x0A)]),
             authAs=self._getAuthAs(authAs, auth),
             noNamed=True,
             useTls=True)
@@ -449,7 +564,7 @@ class Sed(pysed.Sed):
         Optional parameters:
           authAs - tuple of authority, credential, or AuthAs structure.
         '''
-        status, rv, kwrv = self.invoke('Band%d' % rangeNo, 'Erase',
+        status, rv, kwrv = self.__pysed.invoke('Band%d' % rangeNo, 'Erase',
             authAs=self._getAuthAs(authAs, 'EraseMaster'),
             noNamed=True)
         if status != StatusCode.Success:
@@ -467,7 +582,7 @@ class Sed(pysed.Sed):
           authAs - tuple of authority, credential, or AuthAs structure.
 
         '''
-        status, rv, kwrv = self.invoke(range_key, 'GenKey',
+        status, rv, kwrv = self.__pysed.invoke(range_key, 'GenKey',
             authAs=self._getAuthAs(authAs, auth),
             noClose=True,
             noNamed=False,
@@ -486,7 +601,7 @@ class Sed(pysed.Sed):
         obj = auth if obj == None else obj
         self.token.update({'PIN':pin})
         arg = tcgSupport.tokens(self)
-        status, rv, kwrv = self.invoke(obj, 'Set', arg,
+        status, rv, kwrv = self.__pysed.invoke(obj, 'Set', arg,
             authAs=self._getAuthAs(authAs, auth),
             useTls=True,
             **self.token)
@@ -503,7 +618,7 @@ class Sed(pysed.Sed):
           pin  - The PIN to validate.  May be a string or an object with the attribute 'plainText'.
         Returns True if successfully authenticated, False otherwise.  Does not invoke fail method.
         '''
-        return self._checkPIN(auth, pin)
+        return self.__pysed._checkPIN(auth, pin)
 
     def writeaccess(self, user, tableno, authAs=None):
         '''
@@ -520,7 +635,7 @@ class Sed(pysed.Sed):
         else:
             User = baseObjectIds['User##'] + int(''.join(filter(str.isdigit, user)))
 
-        status, rv, kwrv = self.invoke('ACE_DataStore%d_Set_All' % tableno, 'Set',
+        status, rv, kwrv = self.__pysed.invoke('ACE_DataStore%d_Set_All' % tableno, 'Set',
                         (1, [(3, [("\x00\x00\x0C\x05", struct.pack(">Q", User))])]),
                         noNamed=True,
                         sp='LockingSP',
@@ -545,7 +660,7 @@ class Sed(pysed.Sed):
         else:
             User = baseObjectIds['User##'] + int(''.join(filter(str.isdigit, user)))
 
-        status, rv, kwrv = self.invoke('ACE_DataStore%d_Get_All' % tableno, 'Set',
+        status, rv, kwrv = self.__pysed.invoke('ACE_DataStore%d_Get_All' % tableno, 'Set',
                         (1, [(3, [("\x00\x00\x0C\x05", struct.pack(">Q", User))])]),
                         noNamed=True,
                         sp='LockingSP',
@@ -570,7 +685,7 @@ class Sed(pysed.Sed):
         else:
             name_value = [('startRow', 0)]
 
-        status, rv, kwrv = self.invoke('DataStore', 'Get',
+        status, rv, kwrv = self.__pysed.invoke('DataStore', 'Get',
             name_value,
             sp='LockingSP',
             authAs=authAs,
@@ -602,7 +717,7 @@ class Sed(pysed.Sed):
         else:
             name_value, s_data = [('startRow', 0)], tcgSupport.serialize(data)
 
-        status, rv, kwrv = self.invoke('DataStore', 'Set',
+        status, rv, kwrv = self.__pysed.invoke('DataStore', 'Set',
             name_value,
             s_data,
             sp='LockingSP',
@@ -627,7 +742,7 @@ class Sed(pysed.Sed):
         Returns a Port object with attributes reflected from the TCG object table fields.
         Consult setPort named parameters for attribute definitions.
         '''
-        status, rv, kwrv = self.invoke(uid, 'Get',
+        status, rv, kwrv = self.__pysed.invoke(uid, 'Get',
             authAs=self._getAuthAs(authAs, 'SID')
         )
         if status != StatusCode.Success:
@@ -668,7 +783,7 @@ class Sed(pysed.Sed):
                 value = 1 if kwargs.get('PortLocked') == True else 0
             self.token.update({key:value})
         arg = tcgSupport.tokens(self)
-        status, rv, kwrv = self.invoke(port, 'Set', arg, sp='AdminSP',
+        status, rv, kwrv = self.__pysed.invoke(port, 'Set', arg, sp='AdminSP',
             authAs=self._getAuthAs(authAs, 'SID'),
             **self.token)
         self.token.clear()
@@ -688,7 +803,7 @@ class Sed(pysed.Sed):
 
         Returns True if the authority is enabled.
         '''
-        status, rv, kwrv = self.invoke(obj, 'Get',
+        status, rv, kwrv = self.__pysed.invoke(obj, 'Get',
             authAs=self._getAuthAs(authAs, auth))
         if status != StatusCode.Success:
             return self.fail(rv, status)
@@ -712,7 +827,7 @@ class Sed(pysed.Sed):
         '''
         self.token.update({'Enabled':enable})
         arg = tcgSupport.tokens(self)
-        status, rv, kwrv = self.invoke(obj, 'Set', arg,
+        status, rv, kwrv = self.__pysed.invoke(obj, 'Set', arg,
             authAs=self._getAuthAs(authAs, auth),
             **self.token)
         self.token.clear()
@@ -734,7 +849,7 @@ class Sed(pysed.Sed):
           - MaxReEncryptions
           - KeysAvailableCfg
         '''
-        status, rv, kwrv = self.invoke('LockingInfo', 'Get', sp='LockingSP')
+        status, rv, kwrv = self.__pysed.invoke('LockingInfo', 'Get', sp='LockingSP')
         if status != StatusCode.Success:
             return self.fail(rv, status)
         
@@ -751,7 +866,7 @@ class Sed(pysed.Sed):
 
         Returns a string containing the random string.
         '''
-        st, a, kwa = self.invoke('ThisSP', 'Random', count, sp='AdminSP', noNamed=True)
+        st, a, kwa = self.__pysed.invoke('ThisSP', 'Random', count, sp='AdminSP', noNamed=True)
         return a[0]
 
     def revert(self, psid):
@@ -773,7 +888,7 @@ class Sed(pysed.Sed):
         else:
             return False
 
-        status, rv, kwrv = self.invoke('ThisSP', 'RevertSP',
+        status, rv, kwrv = self.__pysed.invoke('ThisSP', 'RevertSP',
             authAs=('PSID', creds),
             sp='AdminSP',
             timeout=5000,
@@ -792,7 +907,7 @@ class Sed(pysed.Sed):
 
         Returns True when successful
         '''
-        status, rv, kwrv = self.invoke('ThisSP', 'RevertSP',
+        status, rv, kwrv = self.__pysed.invoke('ThisSP', 'RevertSP',
             authAs=('Admin1', cred),
             sp='LockingSP',
             timeout=5000,
@@ -814,7 +929,7 @@ class Sed(pysed.Sed):
           authAs  - tuple of authority, credential, or AuthAs structure.
 
         '''
-        status, rv, kwrv = self.invoke('LockingSP', 'Activate',
+        status, rv, kwrv = self.__pysed.invoke('LockingSP', 'Activate',
             authAs=self._getAuthAs(authAs, auth),
             sp='AdminSP',
             noNamed=True)
@@ -832,7 +947,7 @@ class Sed(pysed.Sed):
 
         Returns the signed data in rv[0] when successful
         '''
-        status, rv, kwrv = self.invoke('TPerSign', 'Sign', (dataInput),
+        status, rv, kwrv = self.__pysed.invoke('TPerSign', 'Sign', (dataInput),
             authAs=self._getAuthAs(authAs, 'Anybody'),
             sp='AdminSP',
             noNamed=True,
@@ -853,7 +968,7 @@ class Sed(pysed.Sed):
         that has been trimmed of its trailing 00 bytes value used for padding
         '''
 
-        status, rv, kwrv = self.invoke('_CertData_TPerSign', 'Get', [],
+        status, rv, kwrv = self.__pysed.invoke('_CertData_TPerSign', 'Get', [],
             authAs=self._getAuthAs(authAs, 'Anybody'),
             sp='AdminSP',
             noNamed=True,
@@ -898,7 +1013,7 @@ class Sed(pysed.Sed):
             psk = 'TLS_PSK_Key%d' % psk
         elif isinstance(psk, SedObject):
             psk = psk.Name
-        status, rv, kwrv = self.invoke(psk, 'Get',
+        status, rv, kwrv = self.__pysed.invoke(psk, 'Get',
              authAs=self._getAuthAs(authAs, 'Anybody'), sp=sp)
 
         if status != StatusCode.Success:
@@ -954,7 +1069,7 @@ class Sed(pysed.Sed):
             authAs = (self._getAuthAs(authAs, authAs[0]))
             if self.checkPIN(authAs[0], self.mSID) == True:
                 authAs = (authAs[0], self.mSID)
-            status, rv, kwrv = self.invoke(psk, 'Set', arg,
+            status, rv, kwrv = self.__pysed.invoke(psk, 'Set', arg,
                 authAs=authAs, sp=sp,
                 **self.token)
             if status != StatusCode.Success:

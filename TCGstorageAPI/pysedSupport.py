@@ -61,6 +61,7 @@ baseMethodIds = {
     'Erase':            0x0000000600000803,
     'Sign':             0x000000060000060F,
     'Activate':         0x0000000600000203,
+    'GenKey':           0x0000000600000010
 }
 
 baseAuthIds = {

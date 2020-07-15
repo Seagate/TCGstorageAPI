@@ -236,8 +236,10 @@ class Sed(object):
         self.callbacks = kwargs.get('callbacks', SedCallbacksStub)
         if hasattr(self.callbacks, 'logger'):
             kwargs['logger'] = self.callbacks.logger
-        else:
+        elif kwargs.get('logger') is None:
             warnings.warn("Logger not initialized and passed into the TCGAPI")
+        self.keymanager = self.callbacks.keymanager if hasattr(self.callbacks, 'keymanager') else kwargs.get('keymanager', None)
+        self.logger = kwargs.get('logger', None)
 
         if isinstance(dev, int):
             dev = hex(dev)
@@ -394,25 +396,26 @@ class Sed(object):
             auth, cred = authAs[:]
             authAs = (auth, cred)
         else:
-            tcgSupport.fail(msg='Unknown authAs parameter type: ' + str(authAs))
+             if self.logger is not None:
+                tcgSupport.fail(self.logger, self.devname, StatusCode, msg='Unknown authAs parameter type: ' + str(authAs))
 
-        if not isinstance(authAs, tuple):
-            tcgSupport.fail(msg='authAs parameter normalization error: ' + str(authAs))
+        if not isinstance(authAs, tuple) and self.logger is not None:
+            tcgSupport.fail(self.logger, self.devname, StatusCode, msg='authAs parameter normalization error: ' + str(authAs))
 
         auth, cred = authAs[:]
         if auth is None:
             if defAuth:
                 auth = defAuth
             else:
-                if hasattr(self.callbacks,'logger'):
-                    tcgSupport.getAuth(self.callbacks.logger,currentFuncName(1), defAuth)
+                if self.logger is not None:
+                    tcgSupport.getAuth(self.logger, currentFuncName(1), defAuth)
 
         if auth == 'Anybody':
             return auth
 
         if cred is None:
-            if hasattr(self.callbacks,'keymanager'):
-                cred = tcgSupport.getCred(self.callbacks.keymanager,auth)
+            if self.keymanager is not None:
+                cred = tcgSupport.getCred(self.keymanager, auth)
             else:
                 print ("Credentials not provided for the method"+' '+currentFuncName(1))
 
@@ -427,8 +430,8 @@ class Sed(object):
           cred - The credentials supplied to invoke() or returned from a
                  previous callback of this method.
         '''
-        if hasattr(self.callbacks,'logger'):
-            return tcgSupport.failedCred(self.callbacks.logger,auth, cred)
+        if self.logger is not None:
+            return tcgSupport.failedCred(self.logger, auth, cred)
 
     def fail(self, msg, status):
         '''
@@ -436,8 +439,8 @@ class Sed(object):
         msg - message to be displayed.
         status - Status of the operation being performed
         '''
-        if hasattr(self.callbacks,'logger'):
-            return tcgSupport.fail(self.callbacks.logger,self.devname,StatusCode,op=currentFuncName(1), msg=msg, status=status)
+        if self.logger is not None:
+            return tcgSupport.fail(self.logger, self.devname, StatusCode, op=currentFuncName(1), msg=msg, status=status)
 
     def getRange(self, rangeNo, auth, authAs=None):
         '''

@@ -36,7 +36,8 @@ tokens_table= {'PIN':              [3],
               'Enabled':           [5,3],
               'PSK':               [4],
               'PortLocked' :       [3],
-              'CipherSuite':       [5]}
+              'CipherSuite':       [5],
+              "_MinPINLength" : [0xFFFF0001]}
 
 locking_table={'UID':              0,
                'Name':             1,

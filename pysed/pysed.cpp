@@ -413,7 +413,7 @@ static void encodeParameter(Packet * p, object o, std::string name) {
 			}
 			else					// Opal style ID/value pair
 			{
-				extract<int> asInt(t[0]);
+				extract<long long> asInt(t[0]);
 				if (asInt.check()) {
 					p->encodeToken(StartName);
 					p->encodeAtom(asInt());

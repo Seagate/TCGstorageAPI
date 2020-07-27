@@ -609,6 +609,25 @@ class Sed(object):
             return self.fail(rv, status)
         return True
 
+    def setMinPINLength(self, auth, len, authAs=None, obj=None):
+        '''
+        Setting the length of the credentials for an authority. Support provided only for Opalv2.0
+        auth - An authority string or numeric value identifying the authority to modify.
+        len  - The new minimum length of the credential to apply to this authority.
+        authAs - tuple of authority, credential, or AuthAs structure.
+        '''
+        obj = auth if obj == None else obj
+        self.token.update({'_MinPINLength':len})
+        arg = tcgSupport.tokens(self)
+        status, rv, kwrv = self.__pysed.invoke(obj, 'Set', arg,
+            authAs=self._getAuthAs(authAs, auth),
+            useTls=True,
+            **self.token)
+        self.token.clear()
+        if status != StatusCode.Success:
+            return self.fail(rv, status)
+        return True
+
     def checkPIN(self, auth, pin):
         '''
         Validate credentials for an authority. Support provided only for Enterprise and Opalv2.0

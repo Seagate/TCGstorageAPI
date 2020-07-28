@@ -385,6 +385,14 @@ class Sedcfg(object):
             print("Failed to disable Makers Authority")
             return False
 
+        # Change MinPINlength
+        if self.sed.SSC == "Opalv2":
+            self.authorities = {self.BandLayout.authority[1]: self.BandLayout.auth_objs[0], self.BandLayout.authority[2]: self.BandLayout.auth_objs[1], self.BandLayout.authority[3]: self.BandLayout.auth_objs[2], self.BandLayout.authority[0]: self.BandLayout.authority[0]}
+            for auth, auth_obj in self.authorities.items():
+                if self.sed.setMinPINLength(auth, 4, authAs=(auth, self.keymanager.getKey(auth)), obj = auth_obj) is not True:
+                    print("Failed to set MinPINlength for the authorities")
+                    return False
+
         # Disable Firmware Download
         for uid in self.sed.ports.keys():
             p = self.sed.getPort(uid)
@@ -393,8 +401,13 @@ class Sedcfg(object):
                     if self.sed.setPort(uid, PortLocked=True, LockOnReset=True) == False:
                         print("Failed to disable firmware download port")
                         return False
-                print("FIPS mode of the drive enabled successfully")
-                return True
+
+        if self.sed.fipsApprovedMode==True:
+            print("FIPS mode of the drive enabled successfully")
+            return True
+        else:
+            print("Failed to enable FIPS mode")
+            return False
 
     def lock_unlock_bands(self, args):
         '''

@@ -264,3 +264,8 @@ The API can support key managers.
 The example currently works with 2 bands (TCG Ranges).
 
 The example script must be run as Administrator/root.
+
+## How to contribute
+
+Have a look at [CONTRIBUTING](./CONTRIBUTING.md) for guidelines on how to
+contribute code to this repository.

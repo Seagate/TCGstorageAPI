@@ -4,21 +4,31 @@ We're glad you want to contribute to the TCGstorageAPI project! This document wi
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [] CODE_OF_CONDUCT.md. By participating, you are expected to uphold this code.
+This project and everyone participating in it is governed by the [code of conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+
+## Report bugs
+
+Bugs are tracked as [GitHub issues](https://guides.github.com/features/issues/). To report a bug, please create an issue using bug report template and provide a detailed explaination of the problem.
+
+## Suggest New features
+
+To suggest a new feature, create an issue using the feature request template and provide a detailed explaination. Feature requests are tracked as [GitHub issues](https://guides.github.com/features/issues/).
 
 ## Contribution Process
 
-We have a 3 step process for contributions:
+We have a 4 step process for contributions:
 
-1. Commit changes to a git branch, making sure to sign-off those changes for the [Developer Certificate of Origin](#developer-certification-of-origin-dco).
-2. Create a GitHub Pull Request for your change, following the instructions in the pull request template.
-3. Perform a [Code Review](#code-review-process) with the project maintainers on the pull request.
+1. Fork TCGstorageAPI repository.
+2. Commit changes to a git branch on the fork, making sure to sign-off those changes for the [Developer Certificate of Origin](#developer-certification-of-origin-dco).
+3. Create a GitHub Pull Request for your change, following the instructions in the pull request requirements.
+4. Perform a [Code Review](#code-review-process) with the project maintainers on the pull request.
 
 ### Pull Request Requirements
 
 We strive to ensure quality for the TCGstorageAPI project. In order to ensure this, we require that all pull requests to meet these specifications:
 
-**Tests:** To ensure the quality of the code and protect against future regressions, we require the code submitted through Pull Requests to have unit test coverage. 
+1. If the pull request is associated with an issue, add a comment in the issue referencing the pull request.
+2. To protect against future regressions, we require the code submitted through Pull Requests to have unit test coverage. 
 
 ### Code Review Process
 
@@ -26,7 +36,7 @@ Code review takes place in GitHub pull requests. See [this article](https://help
 
 Once you open a pull request, project maintainers will review your code and respond to your pull request with any feedback they might have. The process at this point is as follows:
 
-1. Two or more members of the owners or approvers must approve your PR. See the CODEOWNERS file for a list of all members.
+1. A Seagate developer must review and approve your PR.
 2. Your change will be merged into the project's `master` branch
 
 ### Developer Certification of Origin (DCO)

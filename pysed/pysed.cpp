@@ -670,6 +670,12 @@ static const char * usePskDocs =
 				"  psk          - The Pre-Shared Key to use.\n"
 				"  psk2         - Optional PSK to use for the LockingSP";
 void Sed::usePsk(string uid, object cipherSuite, object key, object key2) {
+	std::vector<char> bytes;
+	for (unsigned int i = 0; i < uid.length(); i += 2) {
+	    std::string byteString = uid.substr(i, 2);
+	    char byte = (char) strtol(byteString.c_str(), NULL, 16);
+	    bytes.push_back(byte);
+	  }
 #if defined(TCG_TLS) && !defined(_WINDOWS)
 	if (tlsCreds) {
 		destroyCreds();
@@ -678,15 +684,16 @@ void Sed::usePsk(string uid, object cipherSuite, object key, object key2) {
 		tlsEnabled = false;
 		tlsParameters = -1;
 	} else {
-		if (uid.size() != 8) {
+
+		if (bytes.size() != 8) {
 			PyErr_SetString(PyExc_RuntimeError, "Invalid UID specified");
 			return;
 		}
-		tlsCreds[0] = new TlsCredentials(uid, extract<string>(key));
+		tlsCreds[0] = new TlsCredentials(bytes, extract<string>(key));
 		tlsCreds[1] =
 				(key2 == object()) ?
 						tlsCreds[0] :
-						new TlsCredentials(uid, extract<string>(key2));
+						new TlsCredentials(bytes, extract<string>(key2));
 		tlsEnabled = true;
 		TlsSession::supportedSuites().supports(cipherSuites.Value(cipherSuite),
 				&tlsParameters);

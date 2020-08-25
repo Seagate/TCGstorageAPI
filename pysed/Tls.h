@@ -66,7 +66,7 @@ public:
 class TlsCredentials {
 public:
 	gnutls_psk_client_credentials_t	creds;
-	TlsCredentials(std::string user, std::string psk);
+	TlsCredentials(std::vector<char> user, std::string psk);
 	~TlsCredentials();
 };
 

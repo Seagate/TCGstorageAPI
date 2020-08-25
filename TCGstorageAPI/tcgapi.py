@@ -33,6 +33,8 @@ from .tcgSupport import locking_table as locking_table
 from .tcgSupport import portlocking_table as portlocking_table
 from .tcgSupport import c_tls_psk_table as c_tls_psk_table
 import io
+import os
+
 
 StatusCode = pysed.StatusCode
 
@@ -62,7 +64,7 @@ class PskCipherSuites(object):
     ECDHE_PSK_WITH_AES_256_CBC_SHA384 = 0x0C38
     ECDHE_PSK_WITH_NULL_SHA256 = 0x0C3A
     ECDHE_PSK_WITH_NULL_SHA384 = 0x0C3B
-    byValue = {'\xff\xff':None}
+    byValue = {'0xffff':None}
 
     @classmethod
     def _init(cls):
@@ -1050,8 +1052,15 @@ class Sed(object):
                 if not isinstance(key, str):
                     del str_kwrv[key]
 
-        if 'CipherSuite' in kwrv:
+        if 'CipherSuite' in str_kwrv:
+            try:
+                str_kwrv['CipherSuite'] = PskCipherSuites.Name(int(str_kwrv['CipherSuite'],16))
+            except ValueError:
+                try:
             str_kwrv['CipherSuite'] = PskCipherSuites.Name(str_kwrv['CipherSuite'])
+                except:
+                    raise 
+
         return SedObject(str_kwrv)
 
     def setPskEntry(self, psk, authAs=None, **kwargs):
@@ -1082,6 +1091,9 @@ class Sed(object):
         self.token.update({'Enabled':kwargs.get('Enabled'), 'PSK':kwargs.get('PSK'), 'CipherSuite':kwargs['CipherSuite']})
         arg = tcgSupport.tokens(self)
         sps = ['AdminSP', 'LockingSP']
+
+        if kwargs.get('Enabled') == False:
+            os.remove("psk.txt")
 
         for sp, authAs in zip(sps, authAs):
             authAs = (self._getAuthAs(authAs, authAs[0]))

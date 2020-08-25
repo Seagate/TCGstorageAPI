@@ -139,18 +139,18 @@ unsigned SupportedSuites::index2cipherSuite(int index)
 	return((unsigned) csid[0] << 8 | csid[1]);
 }
 
-TlsCredentials::TlsCredentials(std::string uid, std::string _psk)
+TlsCredentials::TlsCredentials(std::vector<char> uid, std::string _psk)
 {
 	gnutls_psk_allocate_client_credentials(&creds);
 	unsigned i;
-	std::string::iterator it;
 	uint8_t *	userId = (uint8_t *) gnutls_malloc(8);
-	for (it = uid.begin(), i = 0; it != uid.end(); it++, i++)
-		userId[i] = *it;
+	for (i = 0; i<uid.size();i++)
+		userId[i] = uid[i];
 
 	uint8_t *		psk = (uint8_t *) gnutls_malloc(_psk.size() + 1);
+	std::string::iterator it;
 	for (it = _psk.begin(), i = 0; it != _psk.end(); it++, i++)
-		psk[i] = *it;
+			psk[i] = *it;
 	creds->username.data = userId;
 	creds->username.size = 8;
 	creds->key.data = psk;

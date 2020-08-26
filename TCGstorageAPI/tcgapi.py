@@ -1056,7 +1056,7 @@ class Sed(object):
             try:
                 str_kwrv['CipherSuite'] = PskCipherSuites.Name(int(str_kwrv['CipherSuite'],16))
             except ValueError:
-                try:     
+                try:
                     str_kwrv['CipherSuite'] = PskCipherSuites.Name(str_kwrv['CipherSuite'])
                 except:
                     raise 

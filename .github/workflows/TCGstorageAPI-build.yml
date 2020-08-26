@@ -36,5 +36,8 @@ jobs:
         run: python3 setup.py opensea
       - name: Build TCGstorageAPI package
         run: python3 setup.py build
-        
-        
+      - name: Run unit tests
+        run: |
+          sudo cp -R build/lib.linux-x86_64-3.6/TCGstorageAPI /home/runner/work/TCGstorageAPI/TCGstorageAPI
+          export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.6/site-packages/
+          python3 TCGstorageAPI/test_tcgapi.py

@@ -165,7 +165,7 @@ class unitTests(unittest.TestCase):
                 str_kwrv[key] = str_kwrv[c_tls_psk_table[key]]
 
         if 'CipherSuite' in kwrv:
-            str_kwrv['CipherSuite'] = PskCipherSuites.Name(str_kwrv['CipherSuite'])
+            str_kwrv['CipherSuite'] = PskCipherSuites.Name(int(str_kwrv['CipherSuite'],16))
 
         return str_kwrv
 
@@ -646,7 +646,7 @@ class unitTests(unittest.TestCase):
     def test_getPskEntry_success_enterprise(self):
 
         # kwrv contains the TlsPsk object with values read reflected from the TCG specification
-        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {b'CipherSuite': b'\x00\xaa', b'CommonName': b'', b'Enabled': 1, b'Name': b'TLS_PSK_Key0', b'UID': b'\x00\x00\x00\x1e\x00\x00\x00\x01'})
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {b'CipherSuite': 'DHE_PSK_WITH_AES_128_GCM_SHA256', b'CommonName': b'', b'Enabled': 1, b'Name': b'TLS_PSK_Key0', b'UID': b'\x00\x00\x00\x1e\x00\x00\x00\x01'})
         p = self.sed.getPskEntry(self.sed.psk)
         kwrv = self.psk_convert(kwrv)
         mocked_return = SedObject(kwrv)
@@ -660,7 +660,7 @@ class unitTests(unittest.TestCase):
 
         type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
         # kwrv contains the TlsPsk object with values read reflected from the TCG specification
-        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {0: '\x00\x00\x00\x1e\x00\x00\x00\x01', 1: 'TLS_PSK_Key1', 2: '', 3: 0, 5: '\x00\xaa'})
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {0: '\x00\x00\x00\x1e\x00\x00\x00\x01', 1: 'TLS_PSK_Key1', 2: '', 3: 0, 5: '0xaa'})
         p = self.sed.getPskEntry(self.sed.psk)
         kwrv = self.psk_convert(kwrv)
         mocked_return = SedObject(kwrv)
@@ -674,7 +674,7 @@ class unitTests(unittest.TestCase):
         psk = {'Name':'sample'}
         l1 = SedObject(psk)
         # kwrv contains the TlsPsk object with values read reflected from the TCG specification
-        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {'CipherSuite': '\xff\xff', 'Enabled': 0, 'CommonName': '', 'UID': '\x00\x00\x00\x1e\x00\x00\x00\x01', 'Name': 'TLS_PSK_Key0'})
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {'CipherSuite': '0xaa', 'CommonName': '', 'Enabled': 0, 'Name': 'TLS_PSK_Key0', 'UID': '0000001e00000001'})
         p = self.sed.getPskEntry(l1)
         kwrv = self.psk_convert(kwrv)
         mocked_return = SedObject(kwrv)
@@ -797,6 +797,16 @@ class unitTests(unittest.TestCase):
 
         self.sedmock.hasLockedRange.return_value = hasLockedRange = False
         self.assertFalse(self.sed.hasLockedRange())
+
+    def test_setMinPINLength_success(self):
+
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [], {})
+        self.assertTrue(self.sed.setMinPINLength(self.sed.auth_Admin, 4, authAs=(self.sed.auth_SID,self.sed_dev)))
+
+    def test_setMinPINLength_fail(self):
+
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
+        self.assertFalse(self.sed.setMinPINLength(self.sed.auth_Admin, 4, authAs=(self.sed.auth_SID,self.sed.invalid_cred)))
 
     def test_fipsApprovedMode_flag_true(self):
 

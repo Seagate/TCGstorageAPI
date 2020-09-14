@@ -4,12 +4,12 @@ on:
   push:
     # Publish `master` as Docker `latest` image.
     branches:
-      - workflow/github-registry
+      - master
 
   # Run tests for any PRs.
   pull_request:
     branches: 
-      - workflow/github-registry
+      - master
 
 env:
   # TODO: Change variable to your image's name.

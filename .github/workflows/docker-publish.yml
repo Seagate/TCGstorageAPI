@@ -12,14 +12,11 @@ on:
       - master
 
 env:
-  # TODO: Change variable to your image's name.
   IMAGE_NAME: tcgstorageapidoc
 
 jobs:
   # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
   push:
-    # Ensure test job passes before pushing image.
       
     runs-on: ubuntu-18.04
 

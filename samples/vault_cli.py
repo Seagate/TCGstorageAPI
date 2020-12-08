@@ -142,9 +142,9 @@ class cSEDConfig(object):
 
     def printDriveInfo(self):
         print("Drive Handle = {}".format(self.deviceHandle))
-        print("WWN          = {}".format(str(hex(self.SED.wwn))[2:]))
+        print("WWN          = {:X}".format(self.SED.wwn))
         print("MSID         = {}".format(self.SED.mSID))
-        print("MaxLBA       = {}".format(self.SED.maxLba))
+        print("MaxLBA       = 0x{:X}".format(self.SED.maxLba))
         print("Is Locked    = {}".format(self.SED.hasLockedRange))
 
     def printSecurityInfo(self):
@@ -218,6 +218,19 @@ class cSEDConfig(object):
             print("Error configuring Band{}".format(bandNumber))
             return False
 
+    def printBandInfo(self, bandNumber):
+        user = "BandMaster{}".format(bandNumber)
+        info, rc = self.SED.getRange(bandNumber, user, authAs=("EraseMaster", self.keyManager.getKey("EraseMaster")))
+        print("Band{} RangeStart       = 0x{:x}".format(bandNumber, info.RangeStart))
+        print("Band{} RangeEnd         = 0x{:x}".format(bandNumber, info.RangeStart + info.RangeLength))
+        print("Band{} RangeLength      = 0x{:x}".format(bandNumber, info.RangeLength))
+        print("Band{} ReadLocked       = {}".format(bandNumber, ("unlocked","locked")[info.ReadLocked]))
+        print("Band{} WriteLocked      = {}".format(bandNumber, ("unlocked","locked")[info.WriteLocked]))
+        print("Band{} LockOnReset      = {}".format(bandNumber, info.LockOnReset))
+        print("Band{} WriteLockEnabled = {}".format(bandNumber, ("False","True")[info.WriteLockEnabled]))
+        print("Band{} ReadLockEnabled  = {}".format(bandNumber, ("False","True")[info.ReadLockEnabled]))
+        return rc
+
     def lockBand(self, bandNumber, lock_state=True):
         user = "BandMaster{}".format(bandNumber)
         configureStatus = self.SED.setRange(
@@ -288,8 +301,18 @@ class cSEDConfig(object):
     def unlockPort(self, portname):
         return self.lockPort(portname, False, False)
 
-    def bandTest(self):
-        self.SED.enableAuthority("BandMaster2", True, "BandMaster2", authAs=("EraseMaster", self.keyManager.getKey("EraseMaster")))
+    def bandTest(self, bandNumber):
+        user = "BandMaster{}".format(bandNumber)
+        configureStatus = self.SED.setRange(
+            "EraseMaster",
+            int(bandNumber),
+            authAs=("EraseMaster", self.keyManager.getKey("EraseMaster")),
+            )
+        if configureStatus:
+            print("Successful")
+        else:
+            print("Error")
+            return False
 
 def generateRandomValue():
     return '%032x' % random.randrange(16**32)
@@ -307,12 +330,13 @@ def main(arguments):
     #SEDConfig.takeOwnership()
     #SEDConfig.rotateKeys()
     #SEDConfig.eraseBand(1)
-    #SEDConfig.configureBands(2, rangeStart=0x100000, rangeLength=0x100000)
+    #SEDConfig.configureBands(1, rangeStart=0x100000, rangeLength=0x100000)
+    #SEDConfig.printBandInfo(1)
     #SEDConfig.lockBand(1)
     #SEDConfig.unlockBand(1)
     #SEDConfig.eraseBand(2)
-    #SEDConfig.bandTest()
-    #SEDConfig.configureBands(2, 0x10000, 0x10000)
+    SEDConfig.bandTest(2)
+    #SEDConfig.configureBands(2, 0x20000, 0x10000)
     #SEDConfig.lockBand(0, True)
     #SEDConfig.printDriveInfo()
     #SEDConfig.lockBand(0, 0)

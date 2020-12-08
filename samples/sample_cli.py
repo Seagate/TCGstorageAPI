@@ -31,7 +31,6 @@ from TCGstorageAPI.tcgapi import PskCipherSuites
 from TCGstorageAPI.tcgapi import Sed
 from keymanager import keymanager_vault as keymanager
 import TCGstorageAPI.tcgSupport as tcgSupport
-import vault as vault
 import helper as verifyidentity
 import datetime
 

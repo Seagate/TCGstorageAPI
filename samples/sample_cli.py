@@ -29,8 +29,9 @@ import struct
 import uuid
 from TCGstorageAPI.tcgapi import PskCipherSuites
 from TCGstorageAPI.tcgapi import Sed
-from TCGstorageAPI import keymanager as keymanager
+from keymanager import keymanager_vault as keymanager
 import TCGstorageAPI.tcgSupport as tcgSupport
+import vault as vault
 import helper as verifyidentity
 import datetime
 
@@ -68,12 +69,14 @@ class Sedcfg(object):
     #NOT_FIPS_MODE -->Drive is a Fips drive and is not operating in FIPS mode/non-deterministic
     Fips_status = ('NOT_FIPS','FIPS_MODE','NOT_FIPS_MODE')
 
-    def __init__(self, dev):
+    def __init__(self, dev, hostname, fqdn, portNo):
         '''
         The constructor for the class.
 
         Parameters:
             dev:Device handle of the drive.
+            hostname: IP Address/FQDN of the server
+            portNo: Port number
         '''
 
         os_type = {'linux2':self.linux_platform,'linux':self.linux_platform, 'win32':self.windows_platform, 'freebsd12':self.freebsd_platform}
@@ -87,7 +90,7 @@ class Sedcfg(object):
         self.logger = logging.getLogger(self.log_filename)
         self.logger.debug('Start sedcfg Logger')
         self.psk = None
-        self.keymanager = keymanager.KeyManager()
+        self.keymanager = keymanager.Vault(self.devname,"c1n1-tharthar","https://super7-vault-ramallo.frmt.seagate.com",8200)
 
         # Build the SED object for the drive
         self.sed = Sed(self.devname, callbacks=self)
@@ -231,21 +234,23 @@ class Sedcfg(object):
             False: Failure of taking drive ownership.
 
         '''
+        self.keymanager.addKey()
+        print("Generating random keys for the KeyManager")
         self.logger.debug('Taking ownership of the drive')
         if  self.sed.checkPIN(self.BandLayout.authority[0], bytes(self.sed.mSID,encoding='utf8')) == False:
             print("Revert the drive to factory state,Drive ownership already taken")
             return False
 
         # Change PIN of Admin to a new PIN from default value
-        good = self.sed.changePIN(self.BandLayout.authority[0], self.keymanager.getKey(self.BandLayout.authority[0]), (None, self.initial_cred))
+        good = self.sed.changePIN(self.BandLayout.authority[0], self.pin, (None, self.initial_cred))
         if good is True:
             if self.BandLayout.authority[1] == 'Admin1':
             # Activate the Locking SP of the drive only for OPAL case
                 if self.sed.activate(self.BandLayout.authority[0]) == False:
                     return False
-                self.initial_cred = tcgSupport.getCred(self.keymanager,'SID')
+                self.initial_cred = self.pin
             # Change PIN of Admin of Locking SP
-            if self.sed.changePIN(self.BandLayout.authority[1], self.keymanager.getKey(self.BandLayout.authority[1]), (None, self.initial_cred), self.BandLayout.auth_objs[0]) == False:
+            if self.sed.changePIN(self.BandLayout.authority[1], self.pin, (None, self.initial_cred), self.BandLayout.auth_objs[0]) == False:
                return False
             if self.enable_authority() is True:
                 print('Credentials of the drive are changed successfully')
@@ -604,6 +609,9 @@ class argParser(object):
         )
 
         main.add_argument('device', help='Specific wwn or device names of drives to operate on')
+        main.add_argument('host', help ='The IP address/FQDN to connect to')
+        main.add_argument('fqdn', help='The Fully Qualified Domain Name')
+        main.add_argument('portNo', help='The Port no to bind')
         subparser = main.add_subparsers(title='subcommand')
         enableTls = subparser.add_parser('Tls', help='EnableTls on the Drive')
         enableTls.add_argument('enabledisable', help='enable or disable Tls communication')
@@ -645,7 +653,7 @@ class argParser(object):
 
 def main(args=None):
     drive_namespace = argParser().doParse(args)
-    sedcfg = Sedcfg(drive_namespace.device)
+    sedcfg = Sedcfg(drive_namespace.device, drive_namespace.host, drive_namespace.fqdn, drive_namespace.portNo)
     if sedcfg.sed.SSC != 'Enterprise' and sedcfg.sed.SSC != 'Opalv2':
         print("Unable to retrieve SED functionality of the device. Enable OS to allow secure commands ")
         return 1

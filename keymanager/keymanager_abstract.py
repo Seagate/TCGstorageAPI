@@ -21,38 +21,23 @@
 #
 #-----------------------------------------------------------------------------
 
-class KeyManager(object):
-    '''
-    This is a class to store authority and credentials temporarily.
-    '''
-
+from abc import ABC, abstractmethod
+ 
+class KeyManager(ABC):
+ 
     def __init__(self):
-        '''
-        The function to create a structure for authority and credentials.
-        '''
-        self.credentials = {}
-
-    def getKey(self,auth):
-        '''
-        The function to get the credential value for an authority.
-
-        Parameters:
-            auth -Authority
-        Returns:
-            cred - credential
-        '''
-
-        cred = self.credentials[auth]
-        return cred
-
+        self.value = value
+        super().__init__()
+    
+    @abstractmethod
+    def addKey(self):
+        pass
+    
+    @abstractmethod
     def setKey(self,auth,cred):
-        '''
-        The function to set credential for an authority.
-
-        Parameters:
-            auth - Authority
-            cred - credential
-        '''
-
-        self.credentials[auth]=cred
-        return
+        pass
+    
+    @abstractmethod
+    def getKey(self,key):
+        pass
+    

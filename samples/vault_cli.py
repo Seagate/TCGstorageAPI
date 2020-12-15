@@ -21,15 +21,13 @@ import argparse
 import json
 import logging
 import os
-import random
 import sys
-from TCGstorageAPI import tcgSupport
-from TCGstorageAPI import keymanager as keyManager
-from TCGstorageAPI.tcgapi import Sed as SED
-from TCGstorageAPI.tcgapi import SedObject as SEDObject
-from TCGstorageAPI import pysed
-from TCGstorageAPI import pysedSupport
 
+# Add TCGstorageAPI path
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+
+import keymanager_vault as keyManager
+from TCGstorageAPI.tcgapi import Sed as SED
 
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -77,10 +75,10 @@ class cCredentials(object):
                 'BandMaster15': '',
             }
 
-            self.cred_table['SID'] = generateRandomValue()
-            self.cred_table['EraseMaster'] = generateRandomValue()
-            self.cred_table['BandMaster0'] = generateRandomValue()
-            self.cred_table['BandMaster1'] = generateRandomValue()
+            #self.cred_table['SID'] = generateRandomValue()
+            #self.cred_table['EraseMaster'] = generateRandomValue()
+            #self.cred_table['BandMaster0'] = generateRandomValue()
+            #self.cred_table['BandMaster1'] = generateRandomValue()
 
             # Write the new values to file
             with open(self.opts.json, 'w+') as json_file:
@@ -114,19 +112,19 @@ class cSEDConfig(object):
             level=logging.DEBUG)
         self.logger = logging.getLogger(self.log_filename)
 
-        # Initialize KeyManager
-        self.keyManager = keyManager.KeyManager()
+        # Initialize Vault
+        server = 'http://10.1.156.120:8200/v1/'
+        container = 'SeagateSecure'
+        self.keyManager = keyManager.Vault(server, container)
 
         # Initialize the SED object
         self.SED = SED(self.deviceHandle, callbacks=self)
         
+        # Get the WWN in STR format
+        self.wwn = format(self.SED.wwn, 'X')
+
         # Initialze the cred_table
         self.myCreds = cCredentials(opts)
-
-        # Initialize the keyManager store
-        # Currently this is done via the cred_table structure
-        for key in self.myCreds.cred_table.keys():
-            self.keyManager.setKey(key, self.myCreds.cred_table[key])
         
         # Initialize the mSID
         self.initial_cred = self.SED.mSID
@@ -164,10 +162,12 @@ class cSEDConfig(object):
 
         # Update each credential
         for user in userList:
+            newValue = self.keyManager.generateRandomValue()
             if self.SED.checkPIN( user, bytes(self.SED.mSID, encoding='utf8')) == True:
-                self.SED.changePIN(user, self.keyManager.getKey(user), (None, self.initial_cred))
-                if self.SED.checkPIN(user, self.keyManager.getKey(user)):
+                self.SED.changePIN(user, newValue, (None, self.initial_cred))
+                if self.SED.checkPIN(user, newValue):
                     print("Took ownership of {}".format(user))
+                    self.keyManager.setKey(self.wwn, user, newValue)
                 else:
                     print("Failed to take ownership of {}".format(user))
                     retVal = False
@@ -179,12 +179,11 @@ class cSEDConfig(object):
         retVal = True
         for user in self.myCreds.cred_table.keys():
             if self.myCreds.cred_table[user]:
-                newValue = generateRandomValue()
-                self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(user)))
+                newValue = self.keyManager.generateRandomValue()
+                self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
                 if self.SED.checkPIN( user, newValue ):
                     print("Successfully Updated {}".format(user))
-                    self.keyManager.setKey(user, newValue)
-                    self.myCreds.updateCredential(user, newValue)
+                    self.keyManager.setKey(self.wwn, user, newValue)
                 else:
                     print("Error Updating {}".format(user))
                     retVal = False
@@ -314,9 +313,6 @@ class cSEDConfig(object):
             print("Error")
             return False
 
-def generateRandomValue():
-    return '%032x' % random.randrange(16**32)
-
 # ****************************************************************************
 # Notes
 # Working - takeOwnership, rotateKeys, lockPort, configureBands(1), lockBand, eraseBand
@@ -326,16 +322,16 @@ def generateRandomValue():
 def main(arguments):
     opts = parse_args()
     SEDConfig = cSEDConfig('/dev/sdb', opts)
-    #SEDConfig.printDriveInfo()
+    SEDConfig.printDriveInfo()
     #SEDConfig.takeOwnership()
-    #SEDConfig.rotateKeys()
+    SEDConfig.rotateKeys()
     #SEDConfig.eraseBand(1)
     #SEDConfig.configureBands(1, rangeStart=0x100000, rangeLength=0x100000)
     #SEDConfig.printBandInfo(1)
     #SEDConfig.lockBand(1)
     #SEDConfig.unlockBand(1)
     #SEDConfig.eraseBand(2)
-    SEDConfig.bandTest(2)
+    #SEDConfig.bandTest(2)
     #SEDConfig.configureBands(2, 0x20000, 0x10000)
     #SEDConfig.lockBand(0, True)
     #SEDConfig.printDriveInfo()

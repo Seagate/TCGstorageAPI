@@ -22,7 +22,6 @@
 #-----------------------------------------------------------------------------
 
 from abc import ABC, abstractmethod
-import random
  
 class KeyManager(ABC):
  
@@ -31,20 +30,14 @@ class KeyManager(ABC):
         super().__init__()
     
     @abstractmethod
-    def storePasswords(self, wwn, cred_table):
-        pass
-
-    @abstractmethod
-    def getPasswords(self, wwn):
-        pass
-
-    @abstractmethod
-    def setKey(self, wwn, key, value):
+    def addKey(self):
         pass
     
     @abstractmethod
-    def getKey(self, wwn, key):
+    def setKey(self,auth,cred):
         pass
     
-    def generateRandomValue(self):
-        return '%032x' % random.randrange(16**32)
+    @abstractmethod
+    def getKey(self,key):
+        pass
+    

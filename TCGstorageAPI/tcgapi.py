@@ -499,7 +499,7 @@ class Sed(object):
         '''
         for key, value in list(kwargs.items()):
             if key == 'LockOnReset':
-                value = [0] if kwargs.get('LockOnReset') == str(True) else []
+                value = [0] if kwargs.get('LockOnReset') == True else []
             self.token.update({key:value})
         arg = tcgSupport.tokens(self)
         status, rv, kwrv = self.__pysed.invoke('Band%d' % rangeNo, 'Set', arg,

@@ -542,6 +542,7 @@ class unitTests(unittest.TestCase):
     def test_tper_attestation_cert_success(self):
 
         self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.cert], {})
+        type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
         tper_attestation_cert = self.sed.get_tperAttestation_Cert()
         rv_bytes = bytearray(rv[0])
         for i, element in reversed(list(enumerate(rv_bytes))):
@@ -561,6 +562,7 @@ class unitTests(unittest.TestCase):
         acc_nonce = '23helloseagate'
         sub_name = 'Seagate'
         acc_ID = '42545254'
+        type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
         self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
         firmware_attestation_message = self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID)
         assert firmware_attestation_message == rv

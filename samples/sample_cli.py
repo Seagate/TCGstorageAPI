@@ -187,6 +187,48 @@ class Sedcfg(object):
             print("Please enter your input to either enable or disable Tls on the drive")
             return False
 
+    def Fw_attestation(self,args=None):
+        '''
+        The function to enable Firmware Attestation on the drive.
+        This is a Seagate proprietary method
+        '''
+        self.logger.debug('Receive Fw attestation cert')
+        # Retrieve the Tper attestation certificate
+        att_cert = self.sed.get_tperAttestation_Cert()
+        if (len(att_cert)) == 0:
+            print("The drive does not contain a certificate")
+            return   
+            
+        # Validate the drive attestation certificate against the root certificate
+        identity = verifyidentity.VerifyIdentity(att_cert)
+        identity.validate_drive_cert()
+        acc_nonce,sub_name='23helloseagate',identity.CN,
+        acc_ID='34254525432Seagate'
+
+        # Receive Firmware attestation message from the drive
+        self.logger.debug('Get Fw attestation meassge')
+        ret = self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID)
+
+        # Verify the signature with the original string
+        if (ret):
+            return_val = ret[0]
+            Accessor_Nonce,Measurement,data,signature =tcgSupport.convert(return_val[512:528].replace(b'\x00',b'')),return_val[528:1376].hex(),return_val[0:1376],return_val[1376:1760]
+        
+            if (Accessor_Nonce!=acc_nonce):
+                return False
+            if (sub_name and acc_ID):
+                Accessor_ID,RTR_ID = tcgSupport.convert(return_val[0:256].replace(b'\x00',b'')),tcgSupport.convert(return_val[256:512].replace(b'\x00',b''))
+                if (Accessor_ID!=acc_ID and RTR_ID!=sub_name):
+                    return False
+            
+            # Display the measurement data to customers for verification
+            if identity.validate_signature(data,signature) == True:
+                print('The measurement data fields are displayed below:\n')
+                print('Version={}\nReserved={}\nSecure Boot Process Device state={}\nSigning Authority Database={}\nSigning Authority Key Certificate Hash={}\nBFW ITCM Hash={}\nBFW IDBA Hash={}\nServo FW Hash={}\nCFW Hash={}\nSEE FW Hash={}\nCFW Overlay Hash={}\nDITS Overlay Hash={}\nDICL Overlay Hash={}\nDCM Overlay Hash={}\nDETS Overlay Hash={}\nMat Lab Shell Hash={}\nSFT Overlay Hash={}\nAL Overlay Hash={}\n'.format(Measurement[0],Measurement[0:3],Measurement[3:131],Measurement[131:351],Measurement[351:383],Measurement[383:415],Measurement[415:447],Measurement[447:479],Measurement[479:511],Measurement[511:543],Measurement[543:575],Measurement[575:607],Measurement[607:639],Measurement[639:671],Measurement[671:703],Measurement[703:735],Measurement[736:767],Measurement[767:799],Measurement[799:831]))
+                return True
+
+        return False
+        
     def device_identification(self):
         '''
         The function to perform device identity attestation by validating the device certificate and digital signature
@@ -608,6 +650,9 @@ class argParser(object):
         enableTls = subparser.add_parser('Tls', help='EnableTls on the Drive')
         enableTls.add_argument('enabledisable', help='enable or disable Tls communication')
         enableTls.set_defaults(operation=Sedcfg.TlsOperation)
+        fwattestation = subparser.add_parser('fwattest', help='Enable Firmware attesttion on the Drive')
+        fwattestation.add_argument('enable', help='enable FW attestation communication')
+        fwattestation.set_defaults(operation=Sedcfg.Fw_attestation)
         datastore = subparser.add_parser('store', help='Use the DataStore on the Drive')
         datastore.add_argument('readwrite', help='Read/Write the data from the DataStore')
         datastore.set_defaults(operation=Sedcfg.datastore)

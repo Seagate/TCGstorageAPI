@@ -95,4 +95,4 @@ Examples:
 Usage: `python3 sample_cli.py <device> <operations> <flags>`
 
 Examples:   
-- `python3 sample_cli.py /dev/sd? fwatttest enable`
+- `python3 sample_cli.py /dev/sd? fwattest enable`

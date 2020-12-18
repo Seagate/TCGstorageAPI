@@ -1,18 +1,18 @@
 name: Docker
 
-on:
-  push:
-    # Publish `master` as Docker `latest` image.
-    branches:
-      - master
+#on:
+  # push:
+  #   # Publish `master` as Docker `latest` image.
+  #   branches:
+  #     - master
 
-  # Run tests for any PRs.
-  pull_request:
-    branches: 
-      - master
+  # # Run tests for any PRs.
+  # pull_request:
+  #   branches: 
+  #     - master
 
 env:
-  IMAGE_NAME: tcgstorageapi
+  IMAGE_NAME: tcgstorageapidoc
 
 jobs:
   # Push image to GitHub Packages.

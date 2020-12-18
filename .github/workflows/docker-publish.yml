@@ -13,6 +13,7 @@ on:
 
 env:
   IMAGE_NAME: tcgstorageapi
+  TOKEN: ${{ secrets.CR_PAT }}
 
 jobs:
   # Push image to GitHub Packages.
@@ -29,11 +30,11 @@ jobs:
 
       - name: Log into GitHub Container Registry
         # Create a PAT with `read:packages` and `write:packages` scopes and save it as an Actions secret `CR_PAT`
-        run: echo "${{ secrets.CR_PAT }}" | docker login https://docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+        run: docker login https://ghcr.io -u ${{ github.repository_owner }} --password ${{ env.TOKEN }}
 
       - name: Push image to GitHub Container Registry
         run: |
-          IMAGE_ID=docker.pkg.github.com/${{ github.repository_owner }}/$IMAGE_NAME
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           # Strip git ref prefix from version

@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import sys
+import time
 from enum import Enum
 
 ## Add TCGstorageAPI path
@@ -34,13 +35,34 @@ from keymanager import keymanager_json
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('-bandno', default=0, type=int,
+                        help='The band to operate on')
+
+    parser.add_argument('-device', default=None,
+                        help='The OS path to the device under operation')
+
     parser.add_argument('-logfile', default="sedcfg.log",
                         help='The filename of the logfile to write')
 
     parser.add_argument('-psid', default="VUTSRQPONMLKJIHGFEDCBA9876543210",
                         help='The PSID of the drive, used for factory restore, found on drive label')
 
+    parser.add_argument('-operation', default='printbandinfo', choices=(
+        'eraseband',
+        'lockband',
+        'lockport',
+        'printbandinfo',
+        'revertdrive',
+        'rotatekeys',
+        'takeownership',
+        'unlockband',
+        'unlockport',
+    ))
+
     opts = parser.parse_args()
+
+    if not opts.device:
+        parser.error('-device argument is mandatory')
 
     return opts
 
@@ -97,9 +119,9 @@ class cSEDConfig(object):
 
         ## Check Security Type
         if self.SED.SSC == "Enterprise":
-            print("SED configuration is Enterprise")
+            self.logger.info("SED configuration is Enterprise")
         elif self.SED.SSC == "Opalv2":
-            print("SED configuration is Opalv2")
+            self.logger.info("SED configuration is Opalv2")
         else:
             print("SED configuration is Unknown/Unsupported (Type {}) - Exiting Script".format(self.SED.SSC))
             sys.exit()
@@ -142,9 +164,8 @@ class cSEDConfig(object):
     #  description: Takes ownership of a drive by replacing the initial credentials
     #               with unique values, which are saved to the KeyManager
     #********************************************************************************
-    def takeOwnership(self):
+    def takeOwnership(self, userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]):
         retVal = True
-        userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]
 
         ## Update each credential
         for user in userList:
@@ -441,28 +462,53 @@ class cSEDConfig(object):
 #***********************************************************************************************************************
 def main(arguments):
     opts = parse_args()
-    SEDConfig = cSEDConfig('/dev/sdb', keyManagerType.VAULT, opts)
-    #SEDConfig.printDriveInfo()
-    #SEDConfig.configureBands(0)
-    #SEDConfig.unlockBand(0)
-    #SEDConfig.printBandInfo(0)
-    SEDConfig.enableFIPS()
-    #SEDConfig.uploadJSONToVault()
-    #SEDConfig.takeOwnership()
-    #SEDConfig.rotateKeys()
-    #SEDConfig.eraseBand(1)
-    #SEDConfig.configureBands(1, rangeStart=0x100000, rangeLength=0x1000000)
-    #SEDConfig.printBandInfo(1)
-    #SEDConfig.lockBand(1)
-    #SEDConfig.unlockBand(1)
-    #SEDConfig.eraseBand(2)
-    #SEDConfig.bandTest(2)
-    #SEDConfig.configureBands(2, 0x20000, 0x10000)
-    #SEDConfig.lockBand(0, True)
-    #SEDConfig.printDriveInfo()
-    #SEDConfig.lockBand(0, 0)
-    #SEDConfig.eraseDrive()
-    
+    SEDConfig = cSEDConfig(opts.device, keyManagerType.VAULT, opts)
+
+    if opts.operation == 'eraseband':
+        SEDConfig.printBandInfo(opts.bandno)
+        timeToWait = 15
+        while timeToWait > 0:
+            print('')
+            print('BAND ERASE will commence in {} seconds'.format(timeToWait))
+            print('    ALL Data on {} band{} will be DESTROYED'.format(opts.device, opts.bandno))
+            print('        Press control-C to abort')
+            time.sleep(5)
+            timeToWait -= 5
+        
+        print('')
+        print('Band Erase has started')
+        SEDConfig.eraseBand(opts.bandno)
+        SEDConfig.takeOwnership(['BandMaster{}'.format(opts.bandno)])
+
+    elif opts.operation == 'lockband':
+        SEDConfig.lockBand(opts.bandno)
+        SEDConfig.printBandInfo(opts.bandno)
+        pass
+
+    elif opts.operation == 'lockport':
+        pass
+
+    if opts.operation == 'printbandinfo':
+        SEDConfig.printBandInfo(opts.bandno)
+        pass
+
+    elif opts.operation == 'revertdrive':
+        pass
+
+    elif opts.operation == 'rotatekeys':
+        SEDConfig.rotateKeys()
+        pass
+
+    elif opts.operation == 'takeownership':
+        SEDConfig.takeOwnership()
+        pass
+
+    elif opts.operation == 'unlockband':
+        SEDConfig.unlockBand(opts.bandno)
+        SEDConfig.printBandInfo(opts.bandno)
+
+    elif opts.operation == 'unlockport':
+        pass
 
 # ****************************************************************************
 if __name__ == '__main__':

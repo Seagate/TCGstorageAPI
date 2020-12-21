@@ -45,6 +45,8 @@ class keymanager_vault(KeyManager):
         response = requests.get(url, headers=self.header)
         if not response.ok:
             print("Error {} on GET request to {}".format(response.status_code, url))
+            if response.status_code:
+                print("If enrolling a new drive, this 404 is expected")
         else:
             secret = json.loads(response.text)['data']
         return secret
@@ -64,3 +66,14 @@ class keymanager_vault(KeyManager):
         else:
             cred_table = {key: value}
         self.storePasswords(wwn, cred_table)
+
+    def generateRandomValue(self):
+        secret = ''
+        url = self.server + 'sys/tools/random'
+        random_info = {"bytes": 16, "format": "hex"}
+        response = requests.post(url, headers=self.header, data=random_info)
+        if not response.ok:
+            print("Error {} on POST request to {}".format(response.status_code, url))
+        else:
+            secret = json.loads(response.text)['data']['random_bytes']
+        return secret

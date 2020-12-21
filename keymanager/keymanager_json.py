@@ -18,8 +18,9 @@
 #****************************************************************************
 
 from .keymanager_abstract import KeyManager
-import os
 import json
+import os
+import random
 
 class keymanager_json(KeyManager):
     def __init__(self):
@@ -62,3 +63,6 @@ class keymanager_json(KeyManager):
         # Write the new value to file
         with open(self.opts.json, 'w+') as json_file:
             json_file.write(json.dumps(self.cred_table))
+
+    def generateRandomValue(self):
+        return '%032x' % random.randrange(16**32)

@@ -46,5 +46,6 @@ class KeyManager(ABC):
     def getKey(self, wwn, key):
         pass
     
+    @abstractmethod
     def generateRandomValue(self):
-        return '%032x' % random.randrange(16**32)
+        pass

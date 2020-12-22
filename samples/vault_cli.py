@@ -32,26 +32,52 @@ from TCGstorageAPI.tcgapi import Sed as SED
 from keymanager import keymanager_vault
 from keymanager import keymanager_json
 
+def auto_int(x):
+    return int(x, 0)
+
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('-bandno', default=0, type=int,
                         help='The band to operate on')
 
+    parser.add_argument('-vaultconfig', default='vaultcfg.json',
+                        help='The filename of the vault config file')
+
     parser.add_argument('-device', default=None,
                         help='The OS path to the device under operation')
+
+    parser.add_argument('-keymanager', default='vault',
+                        help='The keymanager to use')
+
+    parser.add_argument('-lockonreset', action='store_true', default=False,
+                        help='Enable/Disable lock on reset')
 
     parser.add_argument('-logfile', default="sedcfg.log",
                         help='The filename of the logfile to write')
 
-    parser.add_argument('-psid', default="VUTSRQPONMLKJIHGFEDCBA9876543210",
+    parser.add_argument('-port', choices=('UDS', 'FWDownload'),
+                        help='The port to lock or unlock')
+
+    parser.add_argument('-psid', default=None,
                         help='The PSID of the drive, used for factory restore, found on drive label')
 
-    parser.add_argument('-operation', default='printbandinfo', choices=(
+    parser.add_argument('-rangestart', default=None, type=auto_int,
+                        help='The LBA to start the band at')
+
+    parser.add_argument('-rangelength', default=None, type=auto_int,
+                        help='The length of the band')
+
+    parser.add_argument('-operation', default='printdriveinfo', choices=(
+        'configureband',
+        'configureport',
+        'enablefipsmode',
+        'giveupownership',
         'eraseband',
         'lockband',
         'lockport',
         'printbandinfo',
+        'printdriveinfo',
         'revertdrive',
         'rotatekeys',
         'takeownership',
@@ -63,6 +89,11 @@ def parse_args():
 
     if not opts.device:
         parser.error('-device argument is mandatory')
+
+    if opts.keymanager == 'json':
+        opts.keymanager = keyManagerType.JSON
+    else:
+        opts.keymanager = keyManagerType.VAULT
 
     return opts
 
@@ -98,9 +129,7 @@ class cSEDConfig(object):
 
         ## Initialize KeyManager
         if KeyManagerType == keyManagerType.VAULT:  ## Vault KeyManager
-            server = 'http://10.1.156.120:8200/v1/'
-            container = 'SeagateSecure'
-            self.keyManager = keymanager_vault.keymanager_vault(server, container)
+            self.keyManager = keymanager_vault.keymanager_vault(self.opts.vaultconfig)
 
         elif KeyManagerType == keyManagerType.JSON: ## JSON KeyManager
             self.keyManager = keymanager_json.keymanager_json()
@@ -138,11 +167,15 @@ class cSEDConfig(object):
     #              IsLocked: True if any LBA bands are locked, otherwise False
     #********************************************************************************
     def printDriveInfo(self):
-        print("Drive Handle = {}".format(self.deviceHandle))
-        print("WWN          = {:X}".format(self.SED.wwn))
-        print("MSID         = {}".format(self.SED.mSID))
-        print("MaxLBA       = 0x{:X}".format(self.SED.maxLba))
-        print("Is Locked    = {}".format(self.SED.hasLockedRange))
+        print("Drive Handle   = {}".format(self.deviceHandle))
+        if self.SED.fipsCompliance():
+            print("Model Number   = {}".format(self.SED.fipsCompliance()['hardwareVersion']))
+            print("FW Revision    = {}".format(self.SED.fipsCompliance()['descriptorVersion']))
+            print("FIPS Compliant = {}".format(self.SED.fipsApprovedMode))
+        print("WWN            = {:X}".format(self.SED.wwn))
+        print("MSID           = {}".format(self.SED.mSID))
+        print("MaxLBA         = 0x{:X}".format(self.SED.maxLba))
+        print("Is Locked      = {}".format(self.SED.hasLockedRange))
 
     #********************************************************************************
     ##        name: printSecurityInfo
@@ -183,6 +216,27 @@ class cSEDConfig(object):
         return retVal
 
     #********************************************************************************
+    #  description: Gives up ownership of a drive by resetting credentials to default
+    #               Note - this method RETAINS USER DATA
+    #********************************************************************************
+    def giveUpOwnership(self):
+        retVal = True
+
+        ## Update each credential
+        cred_table = self.keyManager.getPasswords(self.wwn)
+        for user in cred_table.keys():
+            if cred_table[user]:
+                newValue = self.initial_cred
+                self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
+                if self.SED.checkPIN( user, newValue ):
+                    print("Successfully Gave Up {}".format(user))
+                    self.keyManager.setKey(self.wwn, user, newValue)
+                else:
+                    print("Error Updating {}".format(user))
+                    retVal = False
+        return retVal
+
+    #********************************************************************************
     ##        name: rotateKeys
     #  description: Retrieves the password of each user from the KeyManager,
     #               changes the password of each user on the drive,
@@ -210,9 +264,10 @@ class cSEDConfig(object):
     #               bandNumber - The band number to configure
     #               rangeStart - The LBA to start at
     #              rangeLength - The Length of the desired LBA band
-    #              lockOnReset - Indicate if the band should lock on reset
+    #               lock_state - Lock the Band
+    #      lock_on_reset_state - Indicate if the band should lock on reset
     #********************************************************************************
-    def configureBands(self, bandNumber, rangeStart=None, rangeLength=None, lockOnReset=True):
+    def configureBands(self, bandNumber, rangeStart=None, rangeLength=None, lock_state=False, lock_on_reset_state=True):
         self.logger.debug("Configuring bands on the drive")
         if self.SED.checkPIN("SID", bytes(self.SED.mSID, encoding='utf8')) == True:
             print("Take ownership of drive before configuring")
@@ -228,9 +283,9 @@ class cSEDConfig(object):
             RangeLength=int(rangeLength) if rangeStart is not None else None,
             ReadLockEnabled=1,
             WriteLockEnabled=1,
-            LockOnReset=lockOnReset,
-            ReadLocked=0,
-            WriteLocked=0,
+            LockOnReset=lock_on_reset_state,
+            ReadLocked=lock_state,
+            WriteLocked=lock_state,
             )
         
         if configureStatus:
@@ -279,23 +334,8 @@ class cSEDConfig(object):
     #               bandNumber - The band to lock/unlock
     #               lock_state - If true, lock the band. If false, unlock the band
     #********************************************************************************
-    def lockBand(self, bandNumber, lock_state=True):
-        user = "BandMaster{}".format(bandNumber)
-        configureStatus = self.SED.setRange(
-            user,
-            int(bandNumber),
-            authAs=(user, self.keyManager.getKey(self.wwn, user)),
-            LockOnReset=lock_state,
-            ReadLocked=lock_state,
-            WriteLocked=lock_state
-            )
-        if configureStatus:
-            print("Band{} is {}".format(bandNumber, ("unlocked","locked")[lock_state]))
-            return True
-        else:
-            print("Error {} Band{}".format(("unlocking","locking")[lock_state]), bandNumber)
-            print(type(configureStatus))
-            return False
+    def lockBand(self, bandNumber):
+        return self.configureBands(bandNumber, lock_state=True)
 
     #********************************************************************************
     ##        name: unlockBand
@@ -304,7 +344,7 @@ class cSEDConfig(object):
     #               bandNumber - The band to unlock
     #********************************************************************************
     def unlockBand(self, bandNumber):
-        return self.lockBand(bandNumber, False)
+        return self.configureBands(bandNumber, lock_state=False)
 
     #********************************************************************************
     ##        name: eraseBand
@@ -339,27 +379,27 @@ class cSEDConfig(object):
     #  description: Prints the status of the UDS and FWDownload ports
     #********************************************************************************
     def printPortStatus(self):
-        print("Port         Locked       LockOnReset")
+        print("Port         Status       LockOnReset")
         for uid in self.SED.ports.keys():
-            port = self.SED.getPort(uid, authAs=("SID", self.keyManager.getKey("SID")))
+            port = self.SED.getPort(uid, authAs=("SID", self.keyManager.getKey(self.wwn, "SID")))
             if port is not None and hasattr(port, 'Name'):
                 print("{}{}{}{}{}".format(
                     port.Name,                                                # Port Name
                     (13 - len(port.Name)) * " ",                              # Whitespace padding
                     ("Unlocked","Locked")[port.PortLocked],                   # Port State
                     (13 - len(("Unlocked","Locked")[port.PortLocked])) * " ", # Whitespace padding
-                    ("Unlocked","Locked")[port.LockOnReset],                  # Lock on Reset State
+                    ("Disabled","Enabled")[port.LockOnReset],                 # Lock on Reset State
                     ))
 
     #********************************************************************************
-    ##        name: lockPort
-    #  description: Locks the indicated port
+    ##        name: configurePort
+    #  description: configures the indicated port
     #   parameters:
-    #               portname - The port to lock/unlock ("FWDownload" or "UDS")
+    #               portname - The port to configure ("FWDownload" or "UDS")
     #             lock_state - If true, lock the band. If false, unlock the band
     #    lock_on_reset_state - If true, enable lock-on-reset. If false, disable lock-on-reset
     #********************************************************************************
-    def lockPort(self, portname, lock_state=True, lock_on_reset_state=True):
+    def configurePort(self, portname, lock_state=True, lock_on_reset_state=True):
         for uid in self.SED.ports.keys():
             port = self.SED.getPort(uid, authAs=("SID", self.keyManager.getKey(self.wwn, "SID")))
             if port is not None and hasattr(port, "Name") and port.Name == portname:
@@ -370,7 +410,16 @@ class cSEDConfig(object):
                     authAs=("SID", self.keyManager.getKey(self.wwn, "SID"))):
                         print("Sucessfully {} {}".format(("unlocked","locked")[lock_state], port.Name))
                         return True
-        return False
+
+    #********************************************************************************
+    ##        name: lockPort
+    #  description: Locks the indicated port
+    #   parameters:
+    #               portname - The port to lock/unlock ("FWDownload" or "UDS")
+    #             lock_state - If true, lock the port. If false, unlock the port
+    #********************************************************************************
+    def lockPort(self, portname):
+        return self.configurePort(portname, True)
 
     #********************************************************************************
     ##        name: unlockPort
@@ -379,7 +428,7 @@ class cSEDConfig(object):
     #               portname - The port to unlock ("FWDownload" or "UDS")
     #********************************************************************************
     def unlockPort(self, portname):
-        return self.lockPort(portname, False, False)
+        return self.configurePort(portname, False)
 
     #********************************************************************************
     ##        name: unlockPort
@@ -406,7 +455,8 @@ class cSEDConfig(object):
             if lockingInfo.ReadLockEnabled and lockingInfo.WriteLockEnabled:
                 print("Band{} Locking Enabled".format(bandNumber))
             else:
-                print("Band{} Locking Disabled".format(bandNumber))
+                print("Band{} Locking Disabled - enable before retrying enablefipsmode".format(bandNumber))
+                return False
 
         # Disable Makers Authority
         if self.SED.enableAuthority(
@@ -462,9 +512,23 @@ class cSEDConfig(object):
 #***********************************************************************************************************************
 def main(arguments):
     opts = parse_args()
-    SEDConfig = cSEDConfig(opts.device, keyManagerType.VAULT, opts)
+    SEDConfig = cSEDConfig(opts.device, opts.keymanager, opts)
 
-    if opts.operation == 'eraseband':
+    if opts.operation == 'configureband':
+        SEDConfig.configureBands(opts.bandno, opts.rangestart, opts.rangelength, opts.lockonreset)
+        SEDConfig.printBandInfo(opts.bandno)
+        pass
+
+    elif opts.operation == 'configureport':
+        SEDConfig.configurePort(opts.port, lock_state=False, lock_on_reset_state=opts.lockonreset)
+        SEDConfig.printPortStatus()
+        pass
+
+    elif opts.operation == 'enablefipsmode':
+        SEDConfig.enableFIPS()
+        pass
+
+    elif opts.operation == 'eraseband':
         SEDConfig.printBandInfo(opts.bandno)
         timeToWait = 15
         while timeToWait > 0:
@@ -479,6 +543,11 @@ def main(arguments):
         print('Band Erase has started')
         SEDConfig.eraseBand(opts.bandno)
         SEDConfig.takeOwnership(['BandMaster{}'.format(opts.bandno)])
+        pass
+
+    elif opts.operation == 'giveupownership':
+        SEDConfig.giveUpOwnership()
+        pass
 
     elif opts.operation == 'lockband':
         SEDConfig.lockBand(opts.bandno)
@@ -486,13 +555,30 @@ def main(arguments):
         pass
 
     elif opts.operation == 'lockport':
+        SEDConfig.lockPort(opts.port)
+        SEDConfig.printPortStatus()
         pass
 
     if opts.operation == 'printbandinfo':
         SEDConfig.printBandInfo(opts.bandno)
         pass
 
+    if opts.operation == 'printdriveinfo':
+        SEDConfig.printDriveInfo()
+        print('')
+        SEDConfig.printPortStatus()
+        pass
+
     elif opts.operation == 'revertdrive':
+        timeToWait = 15
+        while timeToWait > 0:
+            print('')
+            print('REVERT SP will commence in {} seconds'.format(timeToWait))
+            print('    ALL Data on {} will be DESTROYED'.format(opts.device, opts.bandno))
+            print('        Press control-C to abort')
+            time.sleep(5)
+            timeToWait -= 5
+        SEDConfig.revertDrive()
         pass
 
     elif opts.operation == 'rotatekeys':
@@ -508,6 +594,8 @@ def main(arguments):
         SEDConfig.printBandInfo(opts.bandno)
 
     elif opts.operation == 'unlockport':
+        SEDConfig.unlockPort(opts.port)
+        SEDConfig.printPortStatus()
         pass
 
 # ****************************************************************************

@@ -22,15 +22,26 @@ import json
 import os
 import random
 import requests
+import sys
 
 class keymanager_vault(KeyManager):
-    def __init__(self, server, container):
+    def __init__(self, configfile):
         
-        #server = 'http://10.1.156.120:8200/v1/'
-        self.server = server
-        #container = 'SeagateSecure'
-        self.container = container
-        self.root_token = 's.J90j2JEtsKtvoHNtd6Qi5rvv'
+        try:
+            with open(configfile) as json_file:
+                config_table = json.load(json_file)
+
+        except FileNotFoundError:
+            config_table = { 'server': '', 'container': '', 'root_token': ''}
+            with open(configfile, 'w+') as json_file:
+                json_file.write(json.dumps(config_table))
+            print('Vault configuration file not found at {}'.format(configfile))
+            print('Created a default file, please enter Vault Details')
+            sys.exit(1)
+
+        self.server = config_table['server']
+        self.container = config_table['container']
+        self.root_token = config_table['root_token']
         self.header = {'X-Vault-Token': '{}'.format(self.root_token)}
 
     def storePasswords(self, wwn, cred_table):

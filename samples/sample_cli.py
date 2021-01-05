@@ -202,6 +202,11 @@ class Sedcfg(object):
         # Validate the drive attestation certificate against the root certificate
         identity = verifyidentity.VerifyIdentity(att_cert)
         identity.validate_drive_cert()
+
+        # acc_nonce = The accessor nonce
+        # sub_name = The Root of Trust Reporting ID
+        # acc_ID = The accessor ID
+        # Simulated values for the acc_nonce, acc_ID, sub_name
         acc_nonce,sub_name='23helloseagate',identity.CN,
         acc_ID='34254525432Seagate'
 

@@ -539,23 +539,13 @@ class unitTests(unittest.TestCase):
         self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
         self.assertFalse(self.sed.get_tperSign_cert())
     
-    def test_tper_attestation_cert_success_enterprise(self):
+    def test_tper_attestation_cert_success(self):
 
         self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.cert], {})
-        type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
-        tper_attestation_cert = self.sed.get_tperAttestation_Cert()
-        rv_bytes = bytearray(rv[0])
-        for i, element in reversed(list(enumerate(rv_bytes))):
-            if element == 0:
-                del rv_bytes[i]
-            else:
-                break
-        assert tper_attestation_cert == bytearray(rv_bytes)
-
-    def test_tper_attestation_cert_success_opal(self):
-
-        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.cert], {})
-        type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
+        if self.sed.SSC == 'Enterprise':
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
+        else:
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
         tper_attestation_cert = self.sed.get_tperAttestation_Cert()
         rv_bytes = bytearray(rv[0])
         for i, element in reversed(list(enumerate(rv_bytes))):
@@ -570,22 +560,16 @@ class unitTests(unittest.TestCase):
         self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
         self.assertFalse(self.sed.get_tperAttestation_Cert())
     
-    def test_firmware_attestation_optional_param_success_enterprise(self):
+    def test_firmware_attestation_optional_param_success(self):
 
         acc_nonce = '23helloseagate'
         sub_name = 'Seagate'
         acc_ID = '42545254'
-        type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
-        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
-        firmware_attestation_message = self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID)
-        assert firmware_attestation_message == rv
 
-    def test_firmware_attestation_optional_param_success_opal(self):
-
-        acc_nonce = '23helloseagate'
-        sub_name = 'Seagate'
-        acc_ID = '42545254'
-        type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
+        if self.sed.SSC == 'Enterprise':
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
+        else:
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
         self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
         firmware_attestation_message = self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID)
         assert firmware_attestation_message == rv

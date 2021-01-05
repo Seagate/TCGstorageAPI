@@ -44,6 +44,10 @@ class keymanager_json(KeyManager):
 
         return cred_table
 
+    def deletePasswords(self, wwn):
+        jsonFilename = '{}.json'.format(wwn)
+        os.remove(jsonFilename)
+
     def setKey(self, wwn, key, value):
         cred_table = self.getPasswords(wwn)
         cred_table[key] = value
@@ -63,6 +67,13 @@ class keymanager_json(KeyManager):
         # Write the new value to file
         with open(self.opts.json, 'w+') as json_file:
             json_file.write(json.dumps(self.cred_table))
+
+    def getWWNs(self):
+        WWN_list = list()
+        for item in os.listdir():
+            if item[-5:] == '.json':
+                WWN_list.append(item[:-5])
+        return WWN_list
 
     def generateRandomValue(self):
         return '%032x' % random.randrange(16**32)

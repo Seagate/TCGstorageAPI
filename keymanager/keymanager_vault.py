@@ -45,22 +45,35 @@ class keymanager_vault(KeyManager):
         self.header = {'X-Vault-Token': '{}'.format(self.root_token)}
 
     def storePasswords(self, wwn, cred_table):
+        failureStatus = False
         url = self.server + self.container + '/' + wwn
         response = requests.post(url, headers=self.header, data=cred_table)
         if not response.ok:
             print("Error {} on POST request to {}".format(response.status_code, url))
+            print(response.text)
+            failureStatus = True
+        return failureStatus
 
     def getPasswords(self, wwn):
         secret = ''
         url = self.server + self.container + '/' + wwn
         response = requests.get(url, headers=self.header)
         if not response.ok:
-            print("Error {} on GET request to {}".format(response.status_code, url))
-            if response.status_code:
-                print("If enrolling a new drive, this 404 is expected")
+            print("Unexpected {} error".format(response.status_code))
+            print(response.text)
         else:
             secret = json.loads(response.text)['data']
         return secret
+
+    def deletePasswords(self, wwn):
+        failureStatus = False
+        url = self.server + self.container + '/' + wwn
+        response = requests.delete(url, headers=self.header)
+        if not response.ok:
+            print("Unexpected {} error".format(response.status_code))
+            print(response.text)
+            failureStatus = True
+        return failureStatus
 
     def getKey(self, wwn, key):
         try:
@@ -71,15 +84,26 @@ class keymanager_vault(KeyManager):
         return value
 
     def setKey(self, wwn, key, value):
-        cred_table = self.getPasswords(wwn)
-        if cred_table:
+        failureStatus = False
+        if wwn in self.getWWNs():
+            cred_table = self.getPasswords(wwn)
             cred_table[key] = value
         else:
             cred_table = {key: value}
-        self.storePasswords(wwn, cred_table)
+        failureStatus = self.storePasswords(wwn, cred_table)
+        return failureStatus
+
+    def getWWNs(self):
+        url = self.server + self.container + '?list=true'
+        response = requests.get(url, headers=self.header)
+        try:
+            WWN_list = json.loads(response.text)['data']['keys']
+        except KeyError:
+            WWN_list = list()
+        return WWN_list
 
     def generateRandomValue(self):
-        secret = ''
+        secret = 0
         url = self.server + 'sys/tools/random'
         random_info = {"bytes": 16, "format": "hex"}
         response = requests.post(url, headers=self.header, data=random_info)

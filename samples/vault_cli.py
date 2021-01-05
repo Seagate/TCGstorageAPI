@@ -38,37 +38,37 @@ def auto_int(x):
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('-bandno', default=0, type=int,
+    parser.add_argument('--bandno', default=0, type=int,
                         help='The band to operate on')
 
-    parser.add_argument('-vaultconfig', default='vaultcfg.json',
+    parser.add_argument('--vaultconfig', default='vaultcfg.json',
                         help='The filename of the vault config file')
 
-    parser.add_argument('-device', default=None,
+    parser.add_argument('--device', default=None,
                         help='The OS path to the device under operation')
 
-    parser.add_argument('-keymanager', default='vault',
+    parser.add_argument('--keymanager', default='vault',
                         help='The keymanager to use')
 
-    parser.add_argument('-lockonreset', action='store_true', default=False,
+    parser.add_argument('--lockonreset', action='store_true', default=False,
                         help='Enable/Disable lock on reset')
 
-    parser.add_argument('-logfile', default="sedcfg.log",
+    parser.add_argument('--logfile', default="sedcfg.log",
                         help='The filename of the logfile to write')
 
-    parser.add_argument('-port', choices=('UDS', 'FWDownload'),
+    parser.add_argument('--port', choices=('UDS', 'FWDownload'),
                         help='The port to lock or unlock')
 
-    parser.add_argument('-psid', default=None,
+    parser.add_argument('--psid', default=None,
                         help='The PSID of the drive, used for factory restore, found on drive label')
 
-    parser.add_argument('-rangestart', default=None, type=auto_int,
+    parser.add_argument('--rangestart', default=None, type=auto_int,
                         help='The LBA to start the band at')
 
-    parser.add_argument('-rangelength', default=None, type=auto_int,
+    parser.add_argument('--rangelength', default=None, type=auto_int,
                         help='The length of the band')
 
-    parser.add_argument('-operation', default='printdriveinfo', choices=(
+    parser.add_argument('--operation', default='printdriveinfo', choices=(
         'configureband',
         'configureport',
         'enablefipsmode',
@@ -137,6 +137,23 @@ class cSEDConfig(object):
             print("Unknown KeyManager Type!")
             sys.exit(1)
 
+        # Test the KeyManager to ensure read/write access
+        randomName = str(self.keyManager.generateRandomValue())
+        randomKey = self.keyManager.generateRandomValue()
+        randomValue = self.keyManager.generateRandomValue()
+
+        if self.keyManager.setKey(randomName, randomKey, randomValue):
+            print("Unable to interface with keymanager - exiting script")
+            sys.exit(1)
+
+        if self.keyManager.getKey(randomName, randomKey) != randomValue:
+            print("Unable to interface with keymanager - exiting script")
+            sys.exit(1)
+
+        if self.keyManager.deletePasswords(randomName):
+            print("Unable to interface with keymanager - exiting script")
+            sys.exit(1)
+
         ## Initialize the SED object
         self.SED = SED(self.deviceHandle, callbacks=self)
         
@@ -198,7 +215,7 @@ class cSEDConfig(object):
     #               with unique values, which are saved to the KeyManager
     #********************************************************************************
     def takeOwnership(self, userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]):
-        retVal = True
+        failureStatus = False
 
         ## Update each credential
         for user in userList:
@@ -210,17 +227,17 @@ class cSEDConfig(object):
                     self.keyManager.setKey(self.wwn, user, newValue)
                 else:
                     print("Failed to take ownership of {}".format(user))
-                    retVal = False
+                    failureStatus = True
             else:
                 print("Ownership of {} already taken".format(user))
-        return retVal
+        return failureStatus
 
     #********************************************************************************
     #  description: Gives up ownership of a drive by resetting credentials to default
     #               Note - this method RETAINS USER DATA
     #********************************************************************************
     def giveUpOwnership(self):
-        retVal = True
+        failureStatus = False
 
         ## Update each credential
         cred_table = self.keyManager.getPasswords(self.wwn)
@@ -233,8 +250,8 @@ class cSEDConfig(object):
                     self.keyManager.setKey(self.wwn, user, newValue)
                 else:
                     print("Error Updating {}".format(user))
-                    retVal = False
-        return retVal
+                    failureStatus = True
+        return failureStatus
 
     #********************************************************************************
     ##        name: rotateKeys
@@ -243,19 +260,27 @@ class cSEDConfig(object):
     #               saves the updated passwords to the KeyManager
     #********************************************************************************
     def rotateKeys(self):
-        retVal = True
-        cred_table = self.keyManager.getPasswords(self.wwn)
-        for user in cred_table.keys():
-            if cred_table[user]:
-                newValue = self.keyManager.generateRandomValue()
-                self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
-                if self.SED.checkPIN( user, newValue ):
-                    print("Successfully Updated {}".format(user))
-                    self.keyManager.setKey(self.wwn, user, newValue)
-                else:
-                    print("Error Updating {}".format(user))
-                    retVal = False
-        return retVal
+        failureStatus = False
+        if self.wwn not in self.keyManager.getWWNs():
+            print("WWN {} not in KeyManager".format(self.wwn))
+            failureStatus = True
+        else:
+            cred_table = self.keyManager.getPasswords(self.wwn)
+            for user in cred_table.keys():
+                if cred_table[user]:
+                    newValue = self.keyManager.generateRandomValue()
+                    if not self.SED.checkPIN( user, self.keyManager.getKey(self.wwn, user) ):
+                        print("Password for {} in KeyManager is incorrect! Fix or RevertSP".format(user))
+                        failureStatus = True
+                    else:
+                        self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
+                        if self.SED.checkPIN( user, newValue ):
+                            print("Successfully Updated {}".format(user))
+                            self.keyManager.setKey(self.wwn, user, newValue)
+                        else:
+                            print("Error Updating {}".format(user))
+                            failureStatus = True
+        return failureStatus
 
     #********************************************************************************
     ##        name: configureBands
@@ -475,34 +500,7 @@ class cSEDConfig(object):
     # Debug routine
     #********************************************************************************
     def bandTest(self, bandNumber):
-        user = "BandMaster{}".format(bandNumber)
-
-        # Enable BandMaster
-        if self.SED.enableAuthority(
-            'EraseMaster', False, user, authAs=("EraseMaster", self.keyManager.getKey(self.wwn, "EraseMaster"))) == False:
-            print("Failed to enable {}".format(user))
-            return False
-
-        # Take Ownership
-        newValue = self.keyManager.generateRandomValue()
-        self.SED.changePIN(user, newValue, authAs=("EraseMaster", self.keyManager.getKey(self.wwn, "EraseMaster")))
-        if self.SED.checkPIN(user, newValue):
-            print("Took ownership of {}".format(user))
-            self.keyManager.setKey(self.wwn, user, newValue)
-        else:
-            print("Failed to take ownership of {}".format(user))
-            retVal = False
-
-        configureStatus = self.SED.setRange(
-            user,
-            int(bandNumber),
-            authAs=(user, self.keyManager.getKey(self.wwn, user)),
-            )
-        if configureStatus:
-            print("Successful")
-        else:
-            print("Error")
-            return False
+        pass
 
 #***********************************************************************************************************************
 ## Notes
@@ -565,8 +563,8 @@ def main(arguments):
 
     if opts.operation == 'printdriveinfo':
         SEDConfig.printDriveInfo()
-        print('')
-        SEDConfig.printPortStatus()
+        #print('')
+        #SEDConfig.printPortStatus()
         pass
 
     elif opts.operation == 'revertdrive':
@@ -596,6 +594,9 @@ def main(arguments):
     elif opts.operation == 'unlockport':
         SEDConfig.unlockPort(opts.port)
         SEDConfig.printPortStatus()
+        pass
+
+    else:
         pass
 
 # ****************************************************************************

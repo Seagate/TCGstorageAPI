@@ -39,6 +39,10 @@ class KeyManager(ABC):
         pass
 
     @abstractmethod
+    def deletePasswords(self, wwn):
+        pass
+
+    @abstractmethod
     def setKey(self, wwn, key, value):
         pass
     
@@ -46,6 +50,10 @@ class KeyManager(ABC):
     def getKey(self, wwn, key):
         pass
     
+    @abstractmethod
+    def getWWNs(self):
+        pass
+
     @abstractmethod
     def generateRandomValue(self):
         pass

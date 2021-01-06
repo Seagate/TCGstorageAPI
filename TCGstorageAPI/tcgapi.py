@@ -426,28 +426,28 @@ class Sed(object):
             
         return bytearray(rv_bytes)
 
-    def firmware_attestation(self,acc_nonce,sub_name=None,acc_ID=None):
+    def firmware_attestation(self,assessor_nonce,sub_name=None,assessor_ID=None):
         '''
         Obtain the firmware attestation message from the drive
 
         Parameters:
-           acc_nonce = The accessor nonce
+           assessor_nonce = The assessor nonce
         
         Optional parameters :
             sub_name = The Root of Trust Reporting ID
-            acc_ID = The accessor ID
+            assessor_ID = The assessor ID
 
         This is a Seagate proprietary method.  
         '''
 
-        if sub_name and acc_ID is not None:
+        if sub_name and assessor_ID is not None:
             if self.SSC == "Enterprise":
-                status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', acc_nonce,("RTRID",sub_name),("AssessorID",acc_ID),
+                status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', assessor_nonce,("RTRID",sub_name),("AssessorID",assessor_ID),
                 authAs=self._getAuthAs(None, 'Anybody'),
                 sp='AdminSP',
                 noNamed=True)
             elif self.SSC == "Opalv2":
-                status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', acc_nonce,(0,sub_name),(1,acc_ID),
+                status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', assessor_nonce,(0,sub_name),(1,assessor_ID),
                 authAs=self._getAuthAs(None, 'Anybody'),
                 sp='AdminSP',
                 noNamed=True)
@@ -455,7 +455,7 @@ class Sed(object):
                 print("We do not support this type of SSC at this time")
                 return
         else:
-            status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', acc_nonce,
+            status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', assessor_nonce,
                 authAs=self._getAuthAs(None, 'Anybody'),
                 sp='AdminSP',
                 noNamed=True)

@@ -562,34 +562,34 @@ class unitTests(unittest.TestCase):
     
     def test_firmware_attestation_optional_param_success(self):
 
-        acc_nonce = '23helloseagate'
+        assessor_nonce = '23helloseagate'
         sub_name = 'Seagate'
-        acc_ID = '42545254'
+        assessor_ID = '42545254'
 
         if self.sed.SSC == 'Enterprise':
             type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
         else:
             type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
         self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
-        firmware_attestation_message = self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID)
+        firmware_attestation_message = self.sed.firmware_attestation(assessor_nonce,sub_name,assessor_ID)
         assert firmware_attestation_message == rv
 
     def test_firmware_attestation_no_param_success(self):
 
-        acc_nonce = '23helloseagate'
+        assessor_nonce = '23helloseagate'
         sub_name = None
-        acc_ID = None
+        assessor_ID = None
         self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
-        firmware_attestation_message = self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID)
+        firmware_attestation_message = self.sed.firmware_attestation(assessor_nonce,sub_name,assessor_ID)
         assert firmware_attestation_message == rv
 
     def test_firmware_attestation_fail(self):
         
-        acc_nonce = 'false_val'
+        assessor_nonce = 'false_val'
         sub_name = 'false_val'
-        acc_ID = '425452'
+        assessor_ID = '425452'
         self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
-        self.assertFalse(self.sed.firmware_attestation(acc_nonce,sub_name,acc_ID))
+        self.assertFalse(self.sed.firmware_attestation(assessor_nonce,sub_name,assessor_ID))
 
     def test_write_access_datastore_table_success(self):
                 

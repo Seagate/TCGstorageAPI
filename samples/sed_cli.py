@@ -239,18 +239,27 @@ class cSEDConfig(object):
     def giveUpOwnership(self):
         failureStatus = False
 
-        ## Update each credential
-        cred_table = self.keyManager.getPasswords(self.wwn)
-        for user in cred_table.keys():
-            if cred_table[user]:
-                newValue = self.initial_cred
-                self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
-                if self.SED.checkPIN( user, newValue ):
-                    print("Successfully Gave Up {}".format(user))
-                    self.keyManager.setKey(self.wwn, user, newValue)
-                else:
-                    print("Error Updating {}".format(user))
-                    failureStatus = True
+        # Check if WWN is in keymanager, if not, exit
+        if self.wwn not in self.keyManager.getWWNs():
+            print("WWN {} not in KeyManager".format(self.wwn))
+            failureStatus = True
+        else:
+            ## Update each credential
+            cred_table = self.keyManager.getPasswords(self.wwn)
+            for user in cred_table.keys():
+                if cred_table[user]:
+                    if not self.SED.checkPIN( user, (user, self.keyManager.getKey(self.wwn, user))):
+                        newValue = self.initial_cred
+                        self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
+                        if self.SED.checkPIN( user, newValue ):
+                            print("Successfully Gave Up {}".format(user))
+                            self.keyManager.setKey(self.wwn, user, newValue)
+                        else:
+                            print("Error Updating {}".format(user))
+                            failureStatus = True
+                    else:
+                        print("Password for {} in KeyManager is incorrect! Fix or RevertSP".format(user))
+                        failureStatus = True
         return failureStatus
 
     #********************************************************************************
@@ -261,6 +270,8 @@ class cSEDConfig(object):
     #********************************************************************************
     def rotateKeys(self):
         failureStatus = False
+
+        # Check if WWN is in keymanager, if not, exit
         if self.wwn not in self.keyManager.getWWNs():
             print("WWN {} not in KeyManager".format(self.wwn))
             failureStatus = True
@@ -269,9 +280,13 @@ class cSEDConfig(object):
             for user in cred_table.keys():
                 if cred_table[user]:
                     newValue = self.keyManager.generateRandomValue()
+
+                    # Before attempting to update the password, validate the current one, if incorrect, exit
                     if not self.SED.checkPIN( user, self.keyManager.getKey(self.wwn, user) ):
                         print("Password for {} in KeyManager is incorrect! Fix or RevertSP".format(user))
                         failureStatus = True
+
+                    # Change password, validate new password, update keymanager
                     else:
                         self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
                         if self.SED.checkPIN( user, newValue ):
@@ -563,8 +578,8 @@ def main(arguments):
 
     if opts.operation == 'printdriveinfo':
         SEDConfig.printDriveInfo()
-        #print('')
-        #SEDConfig.printPortStatus()
+        print('')
+        SEDConfig.printPortStatus()
         pass
 
     elif opts.operation == 'revertdrive':

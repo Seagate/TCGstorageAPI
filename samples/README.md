@@ -1,6 +1,6 @@
 # Example Script for TCG Storage API
 
-##### Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
+**Copyright (c) 2021 Seagate Technology LLC and/or its Affiliates, All Rights Reserved**
 
 The sample script creates a sample CLI that implements commands to configure a SED and shows how
 to use the underlying TCGstorageAPI. The Trusted Computing Group (TCG) Storage Application Notes
@@ -10,82 +10,140 @@ Note that the CLI is an example only, not guaranteed to work in all cases and on
 
 The example currently works with 2 bands (TCG Ranges) only and must be run as Administrator/root.
 
-### Example commands for CLI
+## To interact with the drive
+In order to interact with the drive, the user must pass in the drive handle, this is how the OS talks to the drive.
+They must also pass in an operation indicating how they want to interact with the drive.
 
-**To take ownership of the drive by changing its credentials:**
-
-Usage: `python3 sample_cli.py <device> <operations>`
-
-Examples:
-- (Linux)   `python3 sample_cli.py /dev/sd? changecreds`
-- (Windows) `python3 sample_cli.py PD? changecreds`
-
-Note: this results in change of default Admin password of the drive. Trying to perform the operation for a second time on the drive without a revert will fail.
-
-
-**To configure bands on the drive:**
-
-Usage: `python3 sample_cli.py <device> <operations> <flags>`
+Usage: `python3 sed_cli.py --device=<device> --operation=<operation>`
 
 Examples:
-- `python3 sample_cli.py /dev/sd? configure 0 True`
-- `python3 sample_cli.py /dev/sd? configure 1 --RangeStart 8 --RangeLength 64 True`
-- `python3 sample_cli.py /dev/sd? configure 2 --RangeStart 80 --RangeLength 88 False`
+- (Linux)   `python3 sed_cli.py --device=/dev/sda --operation=printdriveinfo`
+- (Windows) `python3 sed_cli.py --device=PD0 --operation=printdriveinfo`
 
-Instructions for setting band values:  
-- For the RangeStart input a value that is a multiple of 8 to maintain sector alignment.
-- RangeLength cannot exceed the maximum sector size of the drive.
-- Maintain difference between 2 band ranges. In other words band ranges cannot overlap.
+### KeyManagment
+The script supports two different ways of storing credentials: Hashicorp Vault Server, and JSON files
 
+#### JSON
+Using the JSON method, the script will store/retrieve credentials via plain text JSON files.
+Inherently, this is insecure.  However this method is provided for ease of use, and debugging purposes.
+The script will create a separate file, for each drive, the filename will be `<worldwidename>.json`
 
-**To lock/unlock the configured bands:**
+To use the JSON method, the `--keymanager=json` argument needs to be used.
 
-Usage: `python3 sample_cli.py <device> <operations> <flags>`
+#### Hashicorp Vault Server
+Using a Hashicorp Vault Server, the script will store/retrieve credentials securely using the Vault Server.
+The script, will create a separate entry for each drive, indexed by World Wide Name.
 
-Examples:
-- `python3 sample_cli.py /dev/sd? bandops lock 1`
-- `python3 sample_cli.py /dev/sd? bandops unlock 2`
+Vault Server Setup:
+A Vault Server can be setup to the user's liking, however a Key/Value secrets vault needs to be created.
 
+Configuration file:
+The first time the `sed_cli.py` script is run, it will look for a `vaultcfg.json` file.  If it does not exist,
+the script will create a blank configuration file.  The user will need to fill out relevant information here.
 
-**To revert the drive back to factory state:**
+The vault keymanager is the default method, if `--keymanager=` is not used, the script will invoke this method.
 
-Usage: `python3 sample_cli.py <device> <operations> <flags>`
+#### Other
+The script is setup in a modular matter, so that additional keymanagers can be implemented, and added.
 
-Example:
-- `python3 sample_cli.py	/dev/sd? revert psidnumberofthedrive`
+### Possible Operations
+`--operation=<operation>`
 
+**printdriveinfo**
+`printdriveinfo` will print out information about the drive.  
+It is the default operation, if `--operation=` is not used, the script will invoke this operation.
 
-**To Enable FIPS mode:**
-Take Ownership of the drive first by running `changecreds`, otherwise FIPS enable will fail.
+Usage: `python3 sed_cli.py --device=<device> --operation=printdriveinfo`
 
-Usage: `python3 sample_cli.py <device> <operations>`
+Information printed:
+Drive Handle  - The drive handle being used
+Model Number\* - The model number of the drive \*only available for FIPS configs
+FW Revision\*  - The FW revision of the drive \*only available for FIPS configs
+FIPS Compliant\* - True or False, indicates if the drive is FIPS compliant \*only available for FIPS configs
+WWN - The drive's world wide name
+MSID - The drive's manufacturing secure ID
+MaxLBA - The Max LBA of the drive
+is Owned - True or False, indicates if the drive is longer using the default credentials, and is owned
+is Locked - True or False, indicates if any LBA bands are currently locked
 
-Example:    
-- `python3 sample_cli.py /dev/sd? enablefips`
+Also prints information on Port Status:
+Port - Name of the Port
+Status - Locked or Unlocked
+LockOnReset - Enabled or Disabled
 
+**takeownership**
+`takeownership` will generate a new set of random passwords for each credential, 
+replacing the default credentials on the drive.  Credentials will be updated in the KeyManager.
 
-**To Enable TLS or Disable TLS secure messaging:**
+Usage: `python3 sed_cli.py --device=<device> --operation=takeownership`
 
-TLS operations are not supported on Windows OS.
+**giveupownership**
+`giveupownership` will revert the passwords to their manufacturing default values.
+This method will **PRESERVE** all user data.
 
-On Opal drives, make sure to change the default credentials and activate lockingSP first by running "changecreds".
+Usage: `python3 sed_cli.py --device=<device> --operation=giveupownership`
 
-***WARNING: The generated PSK is stored in a file. This is insecure! In reality the file needs to be replaced by a local keystore or remote key manager.***
+**revertdrive**
+`revertdrive` will revert the drive to its factory state.
+This method will **DELETE** all user data.
 
-Usage: `python3 sample_cli.py <device> <operations> <flags>`
+Usage: `python3 sed_cli.py --device=<device> --operation=revertdrive`
 
-Examples:
-- `python3 sample_cli.py /dev/sd? Tls enable`
-- `python3 sample_cli.py /dev/sd? Tls disable`
+**rotatekeys**
+`rotatekeys` will generate a new set of random passwords for each credential, 
+replacing the current credentials on the drive.  Credentials will be updated in the KeyManager.
 
-Note: To enable debug for gnuTLS on Linux, use `export GNUTLS_DEBUG_LEVEL=4`
+Usage: `python3 sed_cli.py --device=<device> --operation=rotatekeys`
 
-**To read/write data into the DataStore:**
+**configureband**
+`configureband` will configure an LBA band as indicated. It uses additional command line options.
 
-Note: Read/write data does currently not work with TLS enabled.
+Usage: `python3 sed_cli.py --device=<device> --operation=configureband --bandno=<bandno> --rangestart=<rangestart> --rangelength=<rangelength> --lockonreset`
 
-Usage: `python3 sample_cli.py <device> <operations> <flags>`
+`bandno` - The band number to configure
+`rangestart` - The LBA number to start the band at (optional)
+`rangelength` - The length, in LBAs, to configure the band with (optional)
+`lockonreset` - If used, band will enable lockonreset, if not used, band will disable lockonreset
 
-Examples:   
-- `python3 sample_cli.py /dev/sd? store read`
-- `python3 sample_cli.py /dev/sd? store write`
+**lockband**
+`lockband` will lock the indicated LBA band.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=lockband --bandno=<bandno>`
+`bandno` - The band number to configure
+
+**unlockband**
+`unlockband` will unlock the indicated LBA band.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=unlockband --bandno=<bandno>`
+`bandno` - The band number to configure
+
+**eraseband**
+`eraseband` will erase the indicated LBA band. This will **DELETE** user data on that band.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=eraseband --bandno=<bandno>`
+`bandno` - The band number to configure
+
+**configureport**
+`configureport` will configure a port as indicated.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=configureport --port=<port> --lockonreset`
+
+`port` - The port to configure, options are "UDS" and "FWDownload"
+`lockonreset` - If used, port will enable lockonreset, if not used, port will disable lockonreset
+
+**lockport**
+`lockport` will lock the indicated LBA port.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=lockport --port=<port>`
+`port` - The port number to lock
+
+**unlockport**
+`unlockport` will unlock the indicated LBA port.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=unlockport --port=<port>`
+`port` - The port to unlock
+
+**enablefipsmode**
+`enablefipsmode` will enable FIPS compliance, by enabling locking on all bands, and disabling FW downloads
+
+Usage: `python3 sed_cli.py --device=<device> --operation=enablefipsmode`

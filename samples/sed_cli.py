@@ -192,6 +192,7 @@ class cSEDConfig(object):
         print("WWN            = {:X}".format(self.SED.wwn))
         print("MSID           = {}".format(self.SED.mSID))
         print("MaxLBA         = 0x{:X}".format(self.SED.maxLba))
+        print("Is Owned       = {}".format(self.isOwned()))
         print("Is Locked      = {}".format(self.SED.hasLockedRange))
 
     #********************************************************************************
@@ -260,6 +261,10 @@ class cSEDConfig(object):
                     else:
                         print("Password for {} in KeyManager is incorrect! Fix or RevertSP".format(user))
                         failureStatus = True
+
+            # Unlock Ports
+            self.configurePort("UDS", False, False)
+            self.configurePort("FWDownload", False, False)
         return failureStatus
 
     #********************************************************************************
@@ -421,7 +426,11 @@ class cSEDConfig(object):
     def printPortStatus(self):
         print("Port         Status       LockOnReset")
         for uid in self.SED.ports.keys():
-            port = self.SED.getPort(uid, authAs=("SID", self.keyManager.getKey(self.wwn, "SID")))
+            # If default cred, use them, else look up via keymanager
+            if self.SED.checkPIN("SID", bytes(self.SED.mSID, encoding='utf8')) == True:
+                port = self.SED.getPort(uid, authAs=("SID", bytes(self.SED.mSID, encoding='utf8')))
+            else:
+                port = self.SED.getPort(uid, authAs=("SID", self.keyManager.getKey(self.wwn, "SID")))
             if port is not None and hasattr(port, 'Name'):
                 print("{}{}{}{}{}".format(
                     port.Name,                                                # Port Name
@@ -471,7 +480,7 @@ class cSEDConfig(object):
         return self.configurePort(portname, False)
 
     #********************************************************************************
-    ##        name: unlockPort
+    ##        name: uploadJSONToVault
     #  description: Allows the user to upload a json credential file to Vault
     #********************************************************************************
     def uploadJSONToVault(self):
@@ -508,8 +517,23 @@ class cSEDConfig(object):
         if not self.lockPort("FWDownload"):
             return False
 
-        print("FIPS Mode Configured")
-        return True
+        if self.SED.fipsApprovedMode==True:
+            print("FIPS mode of the drive enabled successfully")
+            return True
+        else:
+            print("Failed to enable FIPS mode")
+            return False
+
+    #********************************************************************************
+    ##        name: isOwned
+    #********************************************************************************
+    def isOwned(self, userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]):
+        isOwned = False
+        for user in userList:
+            if self.SED.checkPIN(user, bytes(self.SED.mSID, encoding='utf8')) != True:
+                isOwned = True
+
+        return isOwned
 
     #********************************************************************************
     # Debug routine
@@ -528,7 +552,7 @@ def main(arguments):
     SEDConfig = cSEDConfig(opts.device, opts.keymanager, opts)
 
     if opts.operation == 'configureband':
-        SEDConfig.configureBands(opts.bandno, opts.rangestart, opts.rangelength, opts.lockonreset)
+        SEDConfig.configureBands(opts.bandno, opts.rangestart, opts.rangelength, lock_state=False, lock_on_reset_state=opts.lockonreset)
         SEDConfig.printBandInfo(opts.bandno)
         pass
 
@@ -572,11 +596,11 @@ def main(arguments):
         SEDConfig.printPortStatus()
         pass
 
-    if opts.operation == 'printbandinfo':
+    elif opts.operation == 'printbandinfo':
         SEDConfig.printBandInfo(opts.bandno)
         pass
 
-    if opts.operation == 'printdriveinfo':
+    elif opts.operation == 'printdriveinfo':
         SEDConfig.printDriveInfo()
         print('')
         SEDConfig.printPortStatus()

@@ -428,6 +428,8 @@ class Sed(object):
 
     def firmware_attestation(self,assessor_nonce,sub_name=None,assessor_ID=None):
         '''
+        THIS IS A SEAGATE PROPRIETARY METHOD AND IT WORKS ONLY WITH SEAGATE DEVICES
+        
         Obtain the firmware attestation message from the drive
 
         Parameters:
@@ -435,9 +437,7 @@ class Sed(object):
         
         Optional parameters :
             sub_name = The Root of Trust Reporting ID
-            assessor_ID = The assessor ID
-
-        This is a Seagate proprietary method.  
+            assessor_ID = The assessor ID 
         '''
 
         if sub_name and assessor_ID is not None:

@@ -189,10 +189,14 @@ class Sedcfg(object):
 
     def Fw_attestation(self,args=None):
         '''
+        THIS IS A SEAGATE PROPRIETARY METHOD AND IT WORKS ONLY WITH SEAGATE DEVICES
+
         The function to enable Firmware Attestation on the drive.
-        This is a Seagate proprietary method
         '''
         self.logger.debug('Receive Fw attestation cert')
+        print()
+        print("*** THIS IS THE FW ATTEST METHOD. IT IS A SEAGATE PROPRIETARY METHOD AND WORKS ONLY WITH SEAGATE DEVICES ***")
+        print()
         # Retrieve the Tper attestation certificate
         att_cert = self.sed.get_tperAttestation_Cert()
         if (len(att_cert)) == 0:
@@ -655,7 +659,7 @@ class argParser(object):
         enableTls = subparser.add_parser('Tls', help='EnableTls on the Drive')
         enableTls.add_argument('enabledisable', help='enable or disable Tls communication')
         enableTls.set_defaults(operation=Sedcfg.TlsOperation)
-        fwattestation = subparser.add_parser('fwattest', help='Enable Firmware attesttion on the Drive')
+        fwattestation = subparser.add_parser('fwattest', help='Seagate proprietary method to enable Firmware attesttion on the Drive')
         fwattestation.add_argument('enable', help='enable FW attestation communication')
         fwattestation.set_defaults(operation=Sedcfg.Fw_attestation)
         datastore = subparser.add_parser('store', help='Use the DataStore on the Drive')

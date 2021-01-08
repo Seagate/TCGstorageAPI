@@ -39,7 +39,7 @@ class keymanager_vault(KeyManager):
             print('Created a default file, please enter Vault Details')
             sys.exit(1)
 
-        self.server = config_table['server']
+        self.server = config_table['server'] + 'v1/'
         self.container = config_table['container']
         self.root_token = config_table['root_token']
         self.header = {'X-Vault-Token': '{}'.format(self.root_token)}

@@ -629,6 +629,7 @@ def main(arguments):
     elif opts.operation == 'unlockband':
         SEDConfig.unlockBand(opts.bandno)
         SEDConfig.printBandInfo(opts.bandno)
+        pass
 
     elif opts.operation == 'unlockport':
         SEDConfig.unlockPort(opts.port)

@@ -89,3 +89,10 @@ Usage: `python3 sample_cli.py <device> <operations> <flags>`
 Examples:   
 - `python3 sample_cli.py /dev/sd? store read`
 - `python3 sample_cli.py /dev/sd? store write`
+
+**To enable FW attestation on the drive:**
+
+Usage: `python3 sample_cli.py <device> <operations> <flags>`
+
+Examples:   
+- `python3 sample_cli.py /dev/sd? fwattest enable`

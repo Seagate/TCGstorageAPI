@@ -31,6 +31,7 @@ from cryptography import x509
 from OpenSSL import crypto
 from cryptography.hazmat.backends import default_backend
 import mimetypes
+from TCGstorageAPI import tcgSupport
 
 class VerifyIdentity(object):
     """
@@ -54,21 +55,31 @@ class VerifyIdentity(object):
         is_binary_string = lambda bytes: bool(bytes.translate(None, textchars))  
         driveCert_PEM = DER_cert_to_PEM_cert(bytes(self.drive_cert))
         
-        # Search for and Process the M_TDCI Certificate
-        m_tdci_cert_filename = self.find_certificate_parent(self.drive_cert)
-        m_tdci_cert_binary = self.read_der_cert(m_tdci_cert_filename)
-        m_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(m_tdci_cert_binary)) if is_binary_string(m_tdci_cert_binary) else bytes(m_tdci_cert_binary)
+        self.x509 = crypto.load_certificate(crypto.FILETYPE_PEM, DER_cert_to_PEM_cert(bytes(self.drive_cert)))
+        subject_name = self.x509.get_subject()
+        self.CN = subject_name.CN
+        trusted_certs = [driveCert_PEM]
+        issuerCN_name = ''
+        cert = self.drive_cert
 
-        # Search for and Process the CTDCI Certificate
-        c_tdci_cert_filename = self.find_certificate_parent(m_tdci_cert_binary)
-        c_tdci_cert_binary = self.read_der_cert(c_tdci_cert_filename)
-        c_tdci_cert_PEM = DER_cert_to_PEM_cert(bytes(c_tdci_cert_binary)) if is_binary_string(c_tdci_cert_binary) else bytes(c_tdci_cert_binary)
-
-        url_data = urllib.request.urlopen("http://drivetrust.seagate.com/cert/DTRoot.cer")
-        root_cert_binary = url_data.read()
-        root_cert_PEM = DER_cert_to_PEM_cert(bytes(root_cert_binary))
-
-        trusted_certs = (m_tdci_cert_PEM, c_tdci_cert_PEM, root_cert_PEM)
+        while('Root' not in issuerCN_name):
+            if isinstance(cert, bytes):
+                certi=open(cert_filename, 'rb').read()
+            elif isinstance(cert, bytearray):
+                certi=DER_cert_to_PEM_cert(bytes(self.drive_cert))
+            try:
+                x509_info = crypto.load_certificate(crypto.FILETYPE_PEM,certi) 
+            except:
+                x509_info = crypto.load_certificate(crypto.FILETYPE_ASN1,certi) 
+                
+            issuer_name = x509_info.get_issuer()
+            issuerCN_name = issuer_name.CN
+            cert_filename = self.find_certificate_parent(cert)
+            cert_binary = self.read_der_cert(cert_filename)
+            cert = cert_binary
+            cert_PEM = DER_cert_to_PEM_cert(bytes(cert_binary)) if is_binary_string(cert_binary) else bytes(cert_binary)
+            trusted_certs.append(cert_PEM)
+        
         verified = self.verify_chain_of_trust(driveCert_PEM, trusted_certs)
 
         if verified:
@@ -87,10 +98,8 @@ class VerifyIdentity(object):
         signature: The signature of the drive
 
         '''
-        x509 = crypto.load_certificate(crypto.FILETYPE_PEM, DER_cert_to_PEM_cert(bytes(self.drive_cert)))
-        public_key = x509.get_pubkey()
         try:
-            crypto.verify(x509,signature,original_string,'sha256')
+            crypto.verify(self.x509,signature,original_string,'sha256')
             print("Drive signature verified successfully")
             return True
         except crypto.Error:
@@ -119,16 +128,42 @@ class VerifyIdentity(object):
         for ext in c_cert.extensions:
             # Look for the Certificate Extension that lists the Issuer Certificate URL
             str_ext = str(ext)
-            if "authorityInfoAccess" in str_ext:
+            if "authorityInfoAccess" in str_ext or "cRLDistributionPoints" in str_ext:
                 split_ext = re.split(',', str_ext)
                 for element in split_ext:
-                    if "access_location" in element:
-                        value_str = re.search(r'\((.*?)\)', element).group(1)
+                    if "CRLDistributionPoints" in element or "access_location" in element:
+                        if 'access_location' in element:
+                            value_str = re.search(r'\((.*?)\)', element).group(1)
+                        if "CRLDistributionPoints" in element:
+                            value_str = re.search(r'\((.*?)\)', element).group(1)
+                            value_str = value_str.split("=")
+                            for val in value_str:
+                                if 'http' in val:
+                                    value_str = val
+                                    break
+    
+
                         web_url_str_1 = str.replace(value_str, "value=", '')
                         # Newer version of pyOpenSSL adds a u' to the http string in value=
                         # Need to check for it and strip it out along with ending single quote
                         web_url_str_2 = str.replace(web_url_str_1, "u\'", '')
-                        web_url_str = str.replace(web_url_str_2, "\'", '')
+                        web_url_str = str.replace(web_url_str_2, "\'", '')                        
+                        web_url_list= web_url_str.split('/')
+                        for i,element in enumerate(web_url_list):
+                            if element == 'crl':
+                                web_url_list[i]='cert'
+                            elif '.crl' in element:
+                                cer_ext = web_url_list[i].split('.')
+                                for j,sol in enumerate(cer_ext):
+                                    # Special case to handle the DTroot certificate 
+                                    if sol == 'DTRoot1':
+                                        cer_ext[j] ='DTRoot'
+                                    if sol == 'crl':
+                                        cer_ext[j]='cer'
+                                        break
+                                web_url_list[i] = '.'.join(cer_ext)
+        
+                        web_url_str ='/'.join(web_url_list) 
 
                         # Test to make sure the web_url_str is trusted
                         if "drivetrust.seagate.com" in web_url_str:
@@ -159,6 +194,7 @@ class VerifyIdentity(object):
                             # The URL listed is not a trusted url.
                             print("ERROR: The URL provided by Certificate is not a trusted Website")
                             break
+                       
             else:
                 pass
 

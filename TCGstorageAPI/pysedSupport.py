@@ -61,7 +61,8 @@ baseMethodIds = {
     'Erase':            0x0000000600000803,
     'Sign':             0x000000060000060F,
     'Activate':         0x0000000600000203,
-    'GenKey':           0x0000000600000010
+    'GenKey':           0x0000000600000010,
+    'FirmwareAttestation':0x00000006FFFF000B
 }
 
 baseAuthIds = {
@@ -102,10 +103,12 @@ baseObjectIds = {
     'TLS_PSK_Key##':       0x0000001e00000001,
     'TPerSign':            0x0000000900000007,
     '_CertData_TPerSign':  0x0001000400000000,
+    '_CertData_TPerAttestation':  0x001001F00000000,
     'ACE_Locking_Range##_Set_RdLocked':0x000000080003E000,
     'ACE_Locking_Range##_Set_WrLocked':0x000000080003E800,
     'ACE_DataStore##_Set_All':   0x000000080003FC01,
-    'ACE_DataStore##_Get_All':   0x000000080003FC00
+    'ACE_DataStore##_Get_All':   0x000000080003FC00,
+    'TperAttestation':           0x000000090001FF05
 }
 
 class SPIds(LookupIds):

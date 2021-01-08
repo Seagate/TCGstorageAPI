@@ -35,7 +35,6 @@ from .tcgSupport import c_tls_psk_table as c_tls_psk_table
 import io
 import os
 
-
 StatusCode = pysed.StatusCode
 
 
@@ -381,6 +380,92 @@ class Sed(object):
         if self.callbacks.dataStore is not None:
             self.writeData(authAs=authAs)
 
+    def get_tperAttestation_Cert(self):
+        '''
+        Retrieve the attestation certificate from the drive
+
+        Parameters:
+            - None
+
+        Returns the certificate when successful in a bytearray
+        that has been trimmed of its trailing 00 bytes value used for padding  
+
+        This is a Seagate proprietary method.   
+        '''
+
+        if self.SSC == "Enterprise":
+            status, rv, kwrv = self.__pysed.invoke('_CertData_TPerAttestation', 'Get',([("startRow",0),("endRow",0x5FF)]),
+            authAs=self._getAuthAs(None, 'Anybody'),
+            sp='AdminSP',
+            noNamed=True)
+        elif self.SSC == "Opalv2":
+            status, rv, kwrv = self.__pysed.invoke('_CertData_TPerAttestation', 'Get',([(0o1,0),(0o2,0x5FF)]),
+            authAs=self._getAuthAs(None, 'Anybody'),
+            sp='AdminSP',
+            noNamed=True)
+        else:
+            print("We do not support this type of SSC at this time")
+            return
+
+        # If there is a failure go ahead and return the failure
+        if status != StatusCode.Success:
+            return self.fail(rv, status)
+         
+        # Take the return value output and trim any 00 byte padding from the end.
+        # Make a bytearray copy of the rv and use it
+        rv_bytes = bytearray(rv[0])
+
+        # Start traversing the bytearray from the end. If we find a 0 value delete it from the bytearray
+        # Do this until we find a value that is not zero and then just break out of the for loop.
+        # We keep the rest of the data
+        for i, element in reversed(list(enumerate(rv_bytes))):
+                if element == 0:
+                    del rv_bytes[i]
+                else:
+                    break
+            
+        return bytearray(rv_bytes)
+
+    def firmware_attestation(self,assessor_nonce,sub_name=None,assessor_ID=None):
+        '''
+        THIS IS A SEAGATE PROPRIETARY METHOD AND IT WORKS ONLY WITH SEAGATE DEVICES
+        
+        Obtain the firmware attestation message from the drive
+
+        Parameters:
+           assessor_nonce = The assessor nonce
+        
+        Optional parameters :
+            sub_name = The Root of Trust Reporting ID
+            assessor_ID = The assessor ID 
+        '''
+
+        if sub_name and assessor_ID is not None:
+            if self.SSC == "Enterprise":
+                status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', assessor_nonce,("RTRID",sub_name),("AssessorID",assessor_ID),
+                authAs=self._getAuthAs(None, 'Anybody'),
+                sp='AdminSP',
+                noNamed=True)
+            elif self.SSC == "Opalv2":
+                status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', assessor_nonce,(0,sub_name),(1,assessor_ID),
+                authAs=self._getAuthAs(None, 'Anybody'),
+                sp='AdminSP',
+                noNamed=True)
+            else:
+                print("We do not support this type of SSC at this time")
+                return
+        else:
+            status, rv, kwrv = self.__pysed.invoke('TperAttestation', 'FirmwareAttestation', assessor_nonce,
+                authAs=self._getAuthAs(None, 'Anybody'),
+                sp='AdminSP',
+                noNamed=True)
+
+        # If there is a failure go ahead and return the failure
+        if status != StatusCode.Success:
+            return self.fail(rv, status)
+        
+        return rv
+        
     def _getAuthAs(self, authAs, defAuth=None):
         '''
         Normalize the authAs parameter into a (auth, cred) tuple.
@@ -419,7 +504,7 @@ class Sed(object):
             if self.keymanager is not None:
                 cred = tcgSupport.getCred(self.keymanager, auth)
             else:
-                print ("Credentials not provided for the method"+' '+currentFuncName(1))
+                print ("Credentials not provided for the method" + ' ' + currentFuncName(1))
 
         return (auth, cred)
 
@@ -1054,7 +1139,7 @@ class Sed(object):
 
         if 'CipherSuite' in str_kwrv:
             try:
-                str_kwrv['CipherSuite'] = PskCipherSuites.Name(int(str_kwrv['CipherSuite'],16))
+                str_kwrv['CipherSuite'] = PskCipherSuites.Name(int(str_kwrv['CipherSuite'], 16))
             except ValueError:
                 try:
                     str_kwrv['CipherSuite'] = PskCipherSuites.Name(str_kwrv['CipherSuite'])
@@ -1086,7 +1171,7 @@ class Sed(object):
             psk = psk.Name
             if self.SSC == 'Opalv2':
                 entry = int(psk[-1])
-                psk = 'TLS_PSK_Key'+str(entry-1)
+                psk = 'TLS_PSK_Key' + str(entry - 1)
 
         self.token.update({'Enabled':kwargs.get('Enabled'), 'PSK':kwargs.get('PSK'), 'CipherSuite':kwargs['CipherSuite']})
         arg = tcgSupport.tokens(self)

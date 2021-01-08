@@ -146,4 +146,13 @@ Usage: `python3 sed_cli.py --device=<device> --operation=unlockport --port=<port
 **enablefipsmode**
 `enablefipsmode` will enable FIPS compliance, by enabling locking on all bands, and disabling FW downloads
 
-Usage: `python3 sed_cli.py --device=<device> --operation=enablefipsmode`
+Examples:   
+- `python3 sample_cli.py /dev/sd? store read`
+- `python3 sample_cli.py /dev/sd? store write`
+
+**To enable FW attestation on the drive:**
+
+Usage: `python3 sample_cli.py <device> <operations> <flags>`
+
+Examples:   
+- `python3 sample_cli.py /dev/sd? fwattest enable`

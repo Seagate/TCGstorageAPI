@@ -21,7 +21,7 @@ USER root
 COPY requirements.txt ./
 RUN yum -y update && \
 yum -y install epel-release && \
-yum -y install python3 boost-python36.x86_64 boost-python36-devel.x86_64 gcc gcc-c++ gnutls-devel rpm-build python3-devel && \
+yum -y install python3 boost-python36.x86_64 boost-python36-devel.x86_64 gcc gcc-c++ gnutls-devel rpm-build python3-devel lsscsi openssh-clients && \
 yum clean all
 RUN pip3 install --no-cache-dir -r requirements.txt
 WORKDIR /usr/src/TCGStorageAPI

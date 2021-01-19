@@ -87,8 +87,11 @@ def parse_args():
 
     opts = parser.parse_args()
 
+    if opts.operation == "revertdrive" and not opts.psid:
+        parser.error('--psid argument is mandatory for the revertdrive operation')
+
     if not opts.device:
-        parser.error('-device argument is mandatory')
+        parser.error('--device argument is mandatory')
 
     if opts.keymanager == 'json':
         opts.keymanager = keyManagerType.JSON
@@ -119,6 +122,7 @@ class cSEDConfig(object):
         self.opts = opts
         self.log_filename = self.opts.logfile
         self.deviceHandle = deviceHandle
+        self.driveType = None
 
         ## Initialize Logger
         logging.basicConfig(
@@ -215,7 +219,7 @@ class cSEDConfig(object):
     #  description: Takes ownership of a drive by replacing the initial credentials
     #               with unique values, which are saved to the KeyManager
     #********************************************************************************
-    def takeOwnership(self, userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]):
+    def takeOwnership(self, userList):
         failureStatus = False
 
         ## Update each credential
@@ -231,6 +235,17 @@ class cSEDConfig(object):
                     failureStatus = True
             else:
                 print("Ownership of {} already taken".format(user))
+
+        # If Opal, do additional steps
+        if self.SED.SSC == "Opalv2":
+            newValue = self.keyManager.generateRandomValue()
+            if self.SED.activate("SID"):
+                failureStatus = True
+            if self.SED.changePIN("Admin1", newValue, (None, self.initial_cred), C_PIN_Admin1):
+                failureStatus = True
+
+            self.enable_authority()
+
         return failureStatus
 
     #********************************************************************************
@@ -623,7 +638,11 @@ def main(arguments):
         pass
 
     elif opts.operation == 'takeownership':
-        SEDConfig.takeOwnership()
+        if SEDConfig.SED.SSC == "Enterprise":
+            userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]
+        else:
+            userList = ["SID", "Admin1", "User1", "User2"]
+        SEDConfig.takeOwnership(userList)
         pass
 
     elif opts.operation == 'unlockband':

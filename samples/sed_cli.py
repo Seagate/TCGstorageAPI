@@ -125,6 +125,13 @@ class cSEDConfig(object):
         self.deviceHandle = deviceHandle
         self.driveType = None
 
+        ## Initialize Authority Dictionaries
+        self.authList = ['SID', 'Admin1']
+        self.userList = ['User1']
+        self.authDict = {'SID': 'SID', 'Admin1': 'SID', 'User1': 'Admin1'}
+        self.ownerDict = {'SID': 'SID', 'Admin1': 'Admin1', 'User1': 'Admin1'}
+        self.objDict = {'SID': None, 'Admin1': 'C_PIN_Admin1', 'User1': 'C_PIN_User1'}
+
         ## Initialize Logger
         logging.basicConfig(
             filename=self.log_filename,
@@ -190,6 +197,7 @@ class cSEDConfig(object):
     #********************************************************************************
     def printDriveInfo(self):
         print('Drive Handle   = {}'.format(self.deviceHandle))
+        print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():
             print('Model Number   = {}'.format(self.SED.fipsCompliance()['hardwareVersion']))
             print('FW Revision    = {}'.format(self.SED.fipsCompliance()['descriptorVersion']))
@@ -216,37 +224,101 @@ class cSEDConfig(object):
         print('KeysAvailableCfg = {}'.format(SEDInfo.KeysAvailableCfg))
 
     #********************************************************************************
+    ##        name: takeOwnership
+    #  description: Takes ownership of a drive by replacing the initial credentials
+    #               with unique values, which are saved to the KeyManager
+    #********************************************************************************
+    def takeOwnership(self, userList=['SID', 'EraseMaster', 'BandMaster0', 'BandMaster1']):
+        failureStatus = False
+
+        # Check that SID is unowned
+        if not self.SED.checkPIN('SID', self.keyManager.getKey(self.wwn, 'SID')):
+            print('Ownership of SID already taken')
+            return True
+
+        # Initialize keyManager with default SID
+        self.keyManager.setKey(self.wwn, 'SID', self.SED.mSID)
+
+        if self.SED.SSC == 'Enterprise':
+            ## Update each credential
+            for user in userList:
+                newValue = self.keyManager.generateRandomValue()
+                if self.SED.checkPIN( user, bytes(self.SED.mSID, encoding='utf8')) == True:
+                    self.SED.changePIN(user, newValue, (None, self.initial_cred))
+                    if self.SED.checkPIN(user, newValue):
+                        print('Took ownership of {}'.format(user))
+                        self.keyManager.setKey(self.wwn, user, newValue)
+                    else:
+                        print('Failed to take ownership of {}'.format(user))
+                        failureStatus = True
+                else:
+                    print('Ownership of {} already taken'.format(user))
+
+        elif self.SED.SSC == 'Opalv2':
+            failureStatus = False
+
+            # Step through each Authority
+            for authority in self.authDict.keys():
+                newValue = self.keyManager.generateRandomValue()
+
+                # Enable Users under Admin1
+                if authority in self.userList:
+                    if self.SED.enableAuthority('Admin1', True, authority, authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
+                        print('Enabled {}'.format(authority))
+
+                # Check if PIN is the initial_cred, else use key from authority dictionary
+                if authority == 'Admin1' and self.SED.checkPIN(authority, self.initial_cred):
+                    defaultKey = self.initial_cred
+                else:
+                    defaultKey = self.keyManager.getKey(self.wwn, self.authDict[authority])
+
+                # Change PIN, and verify it changed
+                self.SED.changePIN(
+                    self.ownerDict[authority],
+                    newValue, 
+                    authAs=(None, defaultKey), 
+                    obj=self.objDict[authority])
+
+                if self.SED.checkPIN(authority, newValue):
+                    print('Took ownership of {}'.format(authority))
+                    self.keyManager.setKey(self.wwn, authority, newValue)
+                else:
+                    print('Failed to take ownership of {}'.format(authority))
+                    failureStatus = True
+                    continue
+
+                # Activate SID
+                if authority == 'SID':
+                    if self.SED.activate('SID', authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))):
+                        print('Activated SID')
+                    else:
+                        print('Failed to activate SID')
+                        failureStatus = True
+        
+        else:
+            print('Unknown SSC type')
+            failureStatus = True
+
+        return failureStatus
+
+    #********************************************************************************
     #  description: Gives up ownership of a drive by resetting credentials to default
     #               Note - this method RETAINS USER DATA
     #********************************************************************************
     def giveUpOwnership(self):
         failureStatus = False
 
-        # Check if WWN is in keymanager, if not, exit
-        if self.wwn not in self.keyManager.getWWNs():
-            print('WWN {} not in KeyManager'.format(self.wwn))
-            failureStatus = True
-        else:
-            ## Update each credential
-            cred_table = self.keyManager.getPasswords(self.wwn)
-            for user in cred_table.keys():
-                if cred_table[user]:
-                    if not self.SED.checkPIN( user, (user, self.keyManager.getKey(self.wwn, user))):
-                        newValue = self.initial_cred
-                        self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
-                        if self.SED.checkPIN( user, newValue ):
-                            print('Successfully Gave Up {}'.format(user))
-                            self.keyManager.setKey(self.wwn, user, newValue)
-                        else:
-                            print('Error Updating {}'.format(user))
-                            failureStatus = True
-                    else:
-                        print('Password for {} in KeyManager is incorrect! Fix or RevertSP'.format(user))
-                        failureStatus = True
-
+        if not self.rotateKeys(giveUpOwnership=True):
             # Unlock Ports
             self.configurePort('UDS', False, False)
             self.configurePort('FWDownload', False, False)
+            if self.SED.SSC == 'Opalv2':
+                self.configurePort('ActivationIEEE1667', False, False)
+            self.keyManager.deletePasswords(self.wwn)
+        else:
+            print('Failed to give up ownership')
+            failureStatus = True
+
         return failureStatus
 
     #********************************************************************************
@@ -255,33 +327,82 @@ class cSEDConfig(object):
     #               changes the password of each user on the drive,
     #               saves the updated passwords to the KeyManager
     #********************************************************************************
-    def rotateKeys(self):
+    def rotateKeys(self, giveUpOwnership = False):
         failureStatus = False
 
-        # Check if WWN is in keymanager, if not, exit
-        if self.wwn not in self.keyManager.getWWNs():
-            print('WWN {} not in KeyManager'.format(self.wwn))
-            failureStatus = True
+        if giveUpOwnership:
+            verb = "Gave Up"
         else:
-            cred_table = self.keyManager.getPasswords(self.wwn)
-            for user in cred_table.keys():
-                if cred_table[user]:
+            verb = "Updated"
+
+        if self.SED.SSC == 'Enterprise':
+            # Check if WWN is in keymanager, if not, exit
+            if self.wwn not in self.keyManager.getWWNs():
+                print('WWN {} not in KeyManager'.format(self.wwn))
+                failureStatus = True
+            else:
+                cred_table = self.keyManager.getPasswords(self.wwn)
+                for user in cred_table.keys():
+                    if cred_table[user]:
+                        if giveUpOwnership:
+                            newValue = self.initial_cred
+                        else:
+                            newValue = self.keyManager.generateRandomValue()
+
+                        # Before attempting to update the password, validate the current one, if incorrect, exit
+                        if not self.SED.checkPIN( user, self.keyManager.getKey(self.wwn, user) ):
+                            print('Password for {} in KeyManager is incorrect! Fix or RevertSP'.format(user))
+                            failureStatus = True
+
+                        # Change password, validate new password, update keymanager
+                        else:
+                            self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
+                            if self.SED.checkPIN( user, newValue ):
+                                print('Successfully {} {}'.format(verb, user))
+                                self.keyManager.setKey(self.wwn, user, newValue)
+                            else:
+                                print('Error {} {}'.format(verb, user))
+                                failureStatus = True
+
+        elif self.SED.SSC == 'Opalv2':
+            # Step through each Authority
+            for authority in reversed(self.authList):
+                if not self.SED.checkPIN(authority, self.keyManager.getKey(self.wwn, authority)):
+                    print('Password for {} in KeyManager is incorrect! Fix or RevertSP'.format(authority))
+                    failureStatus = True
+                    continue
+
+                # Create new key
+                if giveUpOwnership:
+                    newValue = self.initial_cred
+                else:
                     newValue = self.keyManager.generateRandomValue()
 
-                    # Before attempting to update the password, validate the current one, if incorrect, exit
-                    if not self.SED.checkPIN( user, self.keyManager.getKey(self.wwn, user) ):
-                        print('Password for {} in KeyManager is incorrect! Fix or RevertSP'.format(user))
-                        failureStatus = True
+                # Change PIN, and verify it changed
+                self.SED.changePIN(
+                    self.ownerDict[authority],
+                    newValue, 
+                    authAs=(None, self.keyManager.getKey(self.wwn, self.ownerDict[authority])), 
+                    obj=self.objDict[authority])
 
-                    # Change password, validate new password, update keymanager
-                    else:
-                        self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
-                        if self.SED.checkPIN( user, newValue ):
-                            print('Successfully Updated {}'.format(user))
-                            self.keyManager.setKey(self.wwn, user, newValue)
-                        else:
-                            print('Error Updating {}'.format(user))
-                            failureStatus = True
+                if self.SED.checkPIN(authority, newValue):
+                    print('Successfully {} {}'.format(verb, authority))
+                    self.keyManager.setKey(self.wwn, authority, newValue)
+                else:
+                    print('Error {} {}'.format(verb, authority))
+                    failureStatus = True
+                    continue
+
+                # Disable User1/User2 under Admin1 if giving up ownership
+                if giveUpOwnership == True:
+                    if authority in self.userList:
+                        if self.SED.enableAuthority('Admin1', False, authority, authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
+                            print('Disabled {}'.format(authority))
+
+        else:
+            print('Unknown SSC type')
+            failureStatus = True
+
         return failureStatus
 
     #********************************************************************************
@@ -294,14 +415,31 @@ class cSEDConfig(object):
     #               lock_state - Lock the Band
     #      lock_on_reset_state - Indicate if the band should lock on reset
     #********************************************************************************
-    def configureBands(self, bandNumber, rangeStart=None, rangeLength=None, lock_state=False, lock_on_reset_state=True):
+    def configureBands(self, bandNumber=-1, rangeStart=None, rangeLength=None, lock_state=False, lock_on_reset_state=True):
         self.logger.debug('Configuring bands on the drive')
         if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
             print('Take ownership of drive before configuring')
             return False
 
         ## Configure Band
-        user = 'BandMaster{}'.format(bandNumber)
+        if self.SED.SSC == 'Enterprise':
+            user = 'BandMaster{}'.format(bandNumber)
+        else:
+            user = 'Admin1'
+            if bandNumber == 0:
+                print('Opalv2 does not support Global Range')
+            elif bandNumber > 2:
+                print('Opalv2 only supports bands 1 and 2')
+            return False
+
+        if bandNumber == '0' and rangeStart != None:
+            print("Can't change range for global locking range")
+            return False
+
+        elif bandNumber != '0' and rangeStart == None:
+            print("Please provide RangeStart and RangeLength values")
+            return False
+
         configureStatus = self.SED.setRange(
             user,
             int(bandNumber),
@@ -315,6 +453,20 @@ class cSEDConfig(object):
             WriteLocked=lock_state,
             )
         
+        # If Opal, enable access to users
+        if self.SED.SSC == 'Opalv2':
+            if bandNumber == 1:
+                rangeList = ['ACE_Locking_Range1_set_RdLocked', 'ACE_Locking_Range1_Set_WrLocked']
+            else:
+                rangeList = ['ACE_Locking_Range2_set_RdLocked', 'ACE_Locking_Range2_Set_WrLocked']
+            for object in rangeList:
+                if self.SED.enable_range_access(
+                    object,
+                    'User{}'.format(bandNumber),
+                    'Admin1',
+                    (None, self.keyManager.getKey(self.wwn, 'Admin1'))):
+                    print('Enabled {}'.format(object))
+
         if configureStatus:
             print('Band{} is configured'.format(bandNumber))
             return True
@@ -339,11 +491,14 @@ class cSEDConfig(object):
     #         WriteLockEnabled - Indicates if the band can be write locked
     #********************************************************************************
     def printBandInfo(self, bandNumber):
-        user = 'BandMaster{}'.format(bandNumber)
-        info, rc = self.SED.getRange(
-            bandNumber,
-            user,
-            authAs=('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster')))
+        if self.SED.SSC == 'Enterprise':
+            user = 'BandMaster{}'.format(bandNumber)
+            auth = ('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster'))
+        else:
+            user = 'Admin1'
+            auth = ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))
+
+        info, rc = self.SED.getRange(bandNumber, user, auth)
         print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, info.RangeStart))
         print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, info.RangeStart + info.RangeLength))
         print('Band{} RangeLength      = 0x{:x}'.format(bandNumber, info.RangeLength))
@@ -406,7 +561,7 @@ class cSEDConfig(object):
     #  description: Prints the status of the UDS and FWDownload ports
     #********************************************************************************
     def printPortStatus(self):
-        print('Port         Status       LockOnReset')
+        print('Port                Status       LockOnReset')
         for uid in self.SED.ports.keys():
             # If default cred, use them, else look up via keymanager
             if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
@@ -416,7 +571,7 @@ class cSEDConfig(object):
             if port is not None and hasattr(port, 'Name'):
                 print('{}{}{}{}{}'.format(
                     port.Name,                                                # Port Name
-                    (13 - len(port.Name)) * ' ',                              # Whitespace padding
+                    (20 - len(port.Name)) * ' ',                              # Whitespace padding
                     ('Unlocked','Locked')[port.PortLocked],                   # Port State
                     (13 - len(('Unlocked','Locked')[port.PortLocked])) * ' ', # Whitespace padding
                     ('Disabled','Enabled')[port.LockOnReset],                 # Lock on Reset State
@@ -511,8 +666,13 @@ class cSEDConfig(object):
     #********************************************************************************
     def isOwned(self, userList = ['SID', 'EraseMaster', 'BandMaster0', 'BandMaster1']):
         isOwned = False
-        for user in userList:
-            if self.SED.checkPIN(user, bytes(self.SED.mSID, encoding='utf8')) != True:
+
+        if self.SED.SSC == 'Enterprise':
+            for user in userList:
+                if self.SED.checkPIN(user, bytes(self.SED.mSID, encoding='utf8')) != True:
+                    isOwned = True
+        else:
+            if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) != True:
                 isOwned = True
 
         return isOwned
@@ -521,106 +681,8 @@ class cSEDConfig(object):
     # Debug routine
     #********************************************************************************
     def bandTest(self):
-        if self.SED.enableAuthority(
-            'Admin1',
-            True, 
-            obj='User1',
-            authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
-            print('Enabled User1')
-        else:
-            print('Failed to enable User1')
-
-        #if self.SED.checkPIN('User1', self.keyManager.getKey(self.wwn, 'Admin1')):
-        #    print('Took ownership of User1')
-        #else:
-        #    print('Failed to take ownership of User1')
-
-        newValue = self.keyManager.generateRandomValue()
-        if self.SED.changePIN('Admin1', newValue, authAs=(None, self.keyManager.getKey(self.wwn, 'Admin1')), obj='C_PIN_User1'):
-            print('Changed User1')
-            self.keyManager.setKey(self.wwn, 'User1', newValue)
-        else:
-            print('Failed to change User1')
-
-class cEnterpriseConfig(cSEDConfig):
-    #********************************************************************************
-    ##        name: takeOwnershipEnterprise
-    #  description: Takes ownership of an Enterprise drive by replacing the initial credentials
-    #               with unique values, which are saved to the KeyManager
-    #********************************************************************************
-    def takeOwnership(self, userList=['SID', 'EraseMaster', 'BandMaster0', 'BandMaster1']):
-        failureStatus = False
-
-        ## Update each credential
-        for user in userList:
-            newValue = self.keyManager.generateRandomValue()
-            if self.SED.checkPIN( user, bytes(self.SED.mSID, encoding='utf8')) == True:
-                self.SED.changePIN(user, newValue, (None, self.initial_cred))
-                if self.SED.checkPIN(user, newValue):
-                    print('Took ownership of {}'.format(user))
-                    self.keyManager.setKey(self.wwn, user, newValue)
-                else:
-                    print('Failed to take ownership of {}'.format(user))
-                    failureStatus = True
-            else:
-                print('Ownership of {} already taken'.format(user))
-
-        return failureStatus
-
-
-class cOpalv2Config(cSEDConfig):
-    #********************************************************************************
-    ##        name: takeOwnershipOpalv2
-    #  description: Takes ownership of an Opalv2 drive by replacing the initial credentials
-    #               with unique values, which are saved to the KeyManager
-    #********************************************************************************
-    def takeOwnership(self, userList=None):
-        failureStatus = False
-        authDict = {'SID': 'SID', 'Admin1': 'SID', 'User1': 'Admin1', 'User2': 'Admin1'}
-        ownerDict = {'SID': 'SID', 'Admin1': 'Admin1', 'User1': 'Admin1', 'User2': 'Admin1'}
-        objDict = {'SID': None, 'Admin1': 'C_PIN_Admin1', 'User1': 'C_PIN_User1', 'User2': 'C_PIN_User2'}
-
-        # Initialize keyManager with default SID
-        self.keyManager.setKey(self.wwn, 'SID', self.SED.mSID)
-
-        # Check that SID is unowned
-        if not self.SED.checkPIN('SID', self.keyManager.getKey(self.wwn, 'SID')):
-            print('Ownership of SID already taken')
-            return True
-
-        # Step through each Authority
-        for authority in authDict.keys():
-            newValue = self.keyManager.generateRandomValue()
-
-            # Enable User1/User2 under Admin1
-            if authority in ['User1', 'User2']:
-                if self.SED.enableAuthority('Admin1', True, authority, authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
-                    print('Enabled {}'.format(authority))
-
-            # Change PIN, and verify it changed
-            self.SED.changePIN(
-                ownerDict[authority],
-                newValue, 
-                authAs=(None, self.keyManager.getKey(self.wwn, authDict[authority])), 
-                obj=objDict[authority])
-
-            if self.SED.checkPIN(authority, newValue):
-                print('Took ownership of {}'.format(authority))
-                self.keyManager.setKey(self.wwn, authority, newValue)
-            else:
-                print('Failed to take ownership of {}'.format(authority))
-                failureStatus = True
-                continue
-
-            # Activate SID
-            if authority == 'SID':
-                if self.SED.activate('SID', authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))):
-                    print('Activated SID')
-                else:
-                    print('Failed to activate SID')
-                    failureStatus = True
-    
-        return failureStatus
+        self.printBandInfo(1)
+        pass
 
 #***********************************************************************************************************************
 ## Notes
@@ -631,15 +693,8 @@ class cOpalv2Config(cSEDConfig):
 def main(arguments):
     opts = parse_args()
 
-    # Determin Drive Config, and create the SEDConfig class from this info
-    securityType = cSEDConfig(opts.device, opts.keymanager, opts).SED.SSC
-    if securityType == 'Opalv2':
-        SEDConfig = cOpalv2Config(opts.device, opts.keymanager, opts)
-    elif securityType == 'Enterprise':
-        SEDConfig = cEnterpriseConfig(opts.device, opts.keymanager, opts)
-    else:
-        print('Unknown SSC - drive does not report as Enterprise or Opalv2')
-        sys.exit(1)
+    # Create the SEDConfig class
+    SEDConfig = cSEDConfig(opts.device, opts.keymanager, opts)
 
     # "Switch" statement on operation
     if opts.operation == 'bandtest':
@@ -741,4 +796,3 @@ def main(arguments):
 # ****************************************************************************
 if __name__ == '__main__':
     main(sys.argv)
-    

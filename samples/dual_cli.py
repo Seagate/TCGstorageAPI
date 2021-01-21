@@ -176,6 +176,22 @@ class cSEDConfig(object):
         print('Is Locked      = {}'.format(self.SED.hasLockedRange))
 
     #********************************************************************************
+    ##        name: printSecurityInfo
+    #  description: Prints various information about the drive's state to console
+    #********************************************************************************
+    def printSecurityInfo(self):
+        if self.SED.SSC == 'Enterprise':
+            SEDInfo = self.SED.lockingInfo()
+            print('Max Ranges = {}'.format(SEDInfo.MaxRanges))
+            print('Encryption Support = {}'.format(SEDInfo.EncryptSupport))
+            print('BlockSize = {}'.format(SEDInfo.LogicalBlockSize))
+            print('LowestAlignedLBA = {}'.format(SEDInfo.LowestAlignedLBA))
+            print('AlignmentGranularity = {}'.format(SEDInfo.AlignmentGranularity))
+            print('AlignmentRequired = {}'.format(SEDInfo.AlignmentRequired))
+            print('MaxReEncryptions = {}'.format(SEDInfo.MaxReEncryptions))
+            print('KeysAvailableCfg = {}'.format(SEDInfo.KeysAvailableCfg))
+
+    #********************************************************************************
     ##        name: takeOwnership
     #  description: Takes ownership of a drive by replacing the initial credentials
     #               with unique values, which are saved to the KeyManager
@@ -212,10 +228,13 @@ class cSEDConfig(object):
                 print('Failed to activate AdminSP ({})'.format(self.AdminSP))
 
         # Take Ownership of LockingSP
-        if self.SED.checkPIN(self.LockingSP, self.initial_cred):
+        if self.SED.SSC == 'Enterprise':
             initialKey = self.initial_cred
-        else:
+        elif self.SED.SSC == 'Opalv2':
             initialKey = self.keyManager.getKey(self.wwn, self.AdminSP)
+        else:
+            failureStatus = True
+            return failureStatus
 
         newKey = self.keyManager.generateRandomValue()
         self.SED.changePIN(self.LockingSP, newKey, (None, initialKey), self.LockingSP_Obj)
@@ -299,6 +318,7 @@ class cSEDConfig(object):
                 self.keyManager.setKey(self.wwn, bandOwner, newKey)
             else:
                 print('Failed to {} {}'.format(verb2, bandOwner))
+                failureStatus = True
 
             # If giving up ownership on Opalv2, bands needs to be disabled
             if self.SED.SSC == 'Opalv2' and giveUpOwnership:
@@ -320,6 +340,15 @@ class cSEDConfig(object):
             self.keyManager.setKey(self.wwn, self.LockingSP, newKey)
         else:
             print('Failed to {} LockingSP({})'.format(verb2, self.LockingSP))
+            failureStatus = True
+
+        # Special case for Opalv2
+        if giveUpOwnership and self.SED.SSC == 'Opalv2':
+            if self.SED.revert_lockingSP(self.keyManager.getKey(self.wwn, self.LockingSP)):
+                print('Reverted LockingSP ({})'.format(self.LockingSP))
+            else:
+                print('Failed to revert LockingSP ({})'.format(self.LockingSP))
+                failureStatus = True
 
         # Rotate AdminSP
         if giveUpOwnership:
@@ -367,7 +396,7 @@ class cSEDConfig(object):
             print('Entered PSID - \'{}\''.format(self.opts.psid))
             return False
 
-'''
+
     #********************************************************************************
     def addBand(self, bandNumber):
         failureStatus = False
@@ -441,7 +470,7 @@ class cSEDConfig(object):
             else:
                 print('Failed to disable {}'.format(bandOwner))
                 failureStatus = True
-'''
+
     #********************************************************************************
     ##        name: printBandInfo
     #  description: Allows the user to configure a custom LBA band
@@ -614,6 +643,8 @@ def main(arguments):
         SEDConfig.printDriveInfo()
         print('')
         SEDConfig.printPortStatus()
+        
+        SEDConfig.printSecurityInfo()
         pass
 
     if opts.operation == 'removeband':

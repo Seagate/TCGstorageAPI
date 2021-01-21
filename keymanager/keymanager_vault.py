@@ -75,6 +75,16 @@ class keymanager_vault(KeyManager):
             failureStatus = True
         return failureStatus
 
+    def getBandNames(self, wwn):
+        bandList = list()
+        for keyName in list(self.getPasswords(wwn).keys()):
+            if 'User' in keyName:
+                bandList.append(keyName)
+            if 'BandMaster' in keyName:
+                bandList.append(keyName)
+        return bandList
+
+
     def getKey(self, wwn, key):
         try:
             value = self.getPasswords(wwn)[key]
@@ -90,6 +100,13 @@ class keymanager_vault(KeyManager):
             cred_table[key] = value
         else:
             cred_table = {key: value}
+        failureStatus = self.storePasswords(wwn, cred_table)
+        return failureStatus
+
+    def deleteKey(self, wwn, key):
+        failureStatus = False
+        cred_table = self.getPasswords(wwn)
+        cred_table.pop(key, None)
         failureStatus = self.storePasswords(wwn, cred_table)
         return failureStatus
 

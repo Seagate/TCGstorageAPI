@@ -48,6 +48,17 @@ class keymanager_json(KeyManager):
         jsonFilename = '{}.json'.format(wwn)
         os.remove(jsonFilename)
 
+    def getBandNames(self, wwn):
+        jsonFilename = '{}.json'.format(wwn)
+        bandList = list()
+        cred_table = self.getPasswords(wwn)
+        for keyName in list(cred_table.keys()):
+            if 'User' in keyName:
+                bandList.append(keyName)
+            if 'BandMaster' in keyName:
+                bandList.append(keyName)
+        return bandList
+
     def setKey(self, wwn, key, value):
         cred_table = self.getPasswords(wwn)
         cred_table[key] = value
@@ -57,16 +68,12 @@ class keymanager_json(KeyManager):
         cred_table = self.getPasswords(wwn)
         return cred_table[key]
 
-    def updateCredential(self, user, passwd):
-        # Update the Dictionary
-        if user in self.cred_table.keys():
-            self.cred_table[user] = passwd
-        else:
-            print('User {} doesnt exist'.format(user))
-
-        # Write the new value to file
-        with open(self.opts.json, 'w+') as json_file:
-            json_file.write(json.dumps(self.cred_table))
+    def deleteKey(self, wwn, key):
+        failureStatus = False
+        cred_table = self.getPasswords(wwn)
+        cred_table.pop(key, None)
+        failureStatus = self.storePasswords(wwn, cred_table)
+        return failureStatus
 
     def getWWNs(self):
         WWN_list = list()

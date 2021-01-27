@@ -43,11 +43,19 @@ class KeyManager(ABC):
         pass
 
     @abstractmethod
+    def getBandNames(self, wwn):
+        pass
+
+    @abstractmethod
     def setKey(self, wwn, key, value):
         pass
     
     @abstractmethod
     def getKey(self, wwn, key):
+        pass
+
+    @abstractmethod
+    def deleteKey(self, wwn, key):
         pass
     
     @abstractmethod

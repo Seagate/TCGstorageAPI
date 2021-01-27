@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import logging
 import os
@@ -10,6 +11,7 @@ import uuid
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 import TCGstorageAPI.tcgSupport as tcgSupport
+import CertificateValidation as verifyIdentity
 from TCGstorageAPI.tcgapi import Sed as SED
 from keymanager import keymanager_vault
 from keymanager import keymanager_json
@@ -52,6 +54,9 @@ def parse_args():
 
     parser.add_argument('--rangelength', default=None, type=auto_int,
                         help='The length of the band')
+
+    parser.add_argument('--skipcert', action='store_true', default=False,
+                        help='Skip validation of the drive certificate')
 
     parser.add_argument('--vaultconfig', default='vaultcfg.json',
                         help='The filename of the vault config file')
@@ -180,9 +185,13 @@ class cSEDConfig(object):
     #              IsLocked: True if any LBA bands are locked, otherwise False
     #********************************************************************************
     def printDriveInfo(self):
+        
+        if not self.opts.skipcert:
+            self.validateSeagateDrive()
         print('Drive Handle   = {}'.format(self.deviceHandle))
         print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():
+            print('FIPS Standard  = {}'.format(self.SED.fipsCompliance()['standard']))
             print('FIPS Compliant = {}'.format(self.SED.fipsApprovedMode))
         print('WWN            = {:X}'.format(self.SED.wwn))
         print('MSID           = {}'.format(self.SED.mSID))
@@ -980,16 +989,36 @@ class cSEDConfig(object):
         return self.SED.checkPIN(self.AdminSP, self.initial_cred) != True
 
     #********************************************************************************
-    def bandTest(self):
-        
+    def validateSeagateDrive(self):
+        if self.SED.fipsCompliance():
+            print('Drive Cert     = N/A (FIPS Configuration)')
+            return False
+
         deviceCert = self.SED.get_tperSign_cert()
 
         # Validate the drive cert against the Seagate root cert
-        identity = verifyidentity.VerifyIdentity(deviceCert)
+        identity = verifyIdentity.VerifyIdentity(deviceCert, self.logger)
         identity.validate_drive_cert()
 
+        # Validate device signature by signing a dummy payload
+        timestamp = str(datetime.datetime.today())
+        signature = self.SED.tperSign(bytes(timestamp, encoding='utf8'))
+
+        # Compare signatures
+        if identity.validate_signature(timestamp, signature):
+            print('Drive Cert     = Authentic Seagate Device')
+            return True
+        else:
+            print('Drive Cert     = Non-Seagate Device')
+            return False
+
+    #********************************************************************************
+    def bandTest(self):
+        print(self.SED.fipsCompliance())
+        pass
+
 #***********************************************************************************************************************
-# verify cert, tperSign
+# tperSign
 #***********************************************************************************************************************
 def main(arguments):
     opts = parse_args()
@@ -1030,7 +1059,7 @@ def main(arguments):
 
     if opts.operation == 'eraseband':
         SEDConfig.printBandInfo(opts.bandno)
-        timeToWait = 0 #JRM FIX back to 15
+        timeToWait = 15
         while timeToWait > 0:
             print('')
             print('BAND ERASE will commence in {} seconds'.format(timeToWait))
@@ -1066,8 +1095,6 @@ def main(arguments):
         SEDConfig.printDriveInfo()
         print('')
         SEDConfig.printPortStatus()
-        
-        SEDConfig.printSecurityInfo()
         pass
 
     if opts.operation == 'readdatastore':
@@ -1079,7 +1106,7 @@ def main(arguments):
         pass
 
     if opts.operation == 'revertdrive':
-        timeToWait = 0 #JRM FIX back to 15
+        timeToWait = 15
         while timeToWait > 0:
             print('')
             print('REVERT SP will commence in {} seconds'.format(timeToWait))

@@ -40,8 +40,9 @@ class VerifyIdentity(object):
     cert: Certificate pulled from the device
     """
 
-    def __init__(self,cert):
+    def __init__(self, cert, logger):
         self.drive_cert = cert
+        self.logger = logger
 
     def validate_drive_cert(self):
         '''
@@ -72,11 +73,11 @@ class VerifyIdentity(object):
         verified = self.verify_chain_of_trust(driveCert_PEM, trusted_certs)
 
         if verified:
-            print ("Drive Certificate chain verified from drive to root")
+            self.logger.debug("Drive Certificate chain verified from drive to root")
         else:
             raise Exception("ERROR: Issue verifying Certificate chain, do NOT trust")
 
-    def validate_signature(self,original_string,signature):
+    def validate_signature(self, original_string,signature):
         '''
 
         The function to validate the digital signature of the drive
@@ -91,13 +92,13 @@ class VerifyIdentity(object):
         public_key = x509.get_pubkey()
         try:
             crypto.verify(x509,signature,original_string,'sha256')
-            print("Drive signature verified successfully")
+            self.logger.debug("Drive signature verified successfully")
             return True
         except crypto.Error:
-            print("Failed to verify signature of the drive")
+            self.logger.debug("Failed to verify signature of the drive")
             return False
         except:
-            print("Failed to perform signature validation")
+            self.logger.debug("Failed to perform signature validation")
             return False
 
     @staticmethod

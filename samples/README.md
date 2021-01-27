@@ -6,9 +6,9 @@ The sample script creates a sample CLI that implements commands to configure a S
 to use the underlying TCGstorageAPI. The Trusted Computing Group (TCG) Storage Application Notes
 for Enterprise SSC and Opal SSC were used as a reference; see https://trustedcomputinggroup.org/
 
-Note that the CLI is an example only, not guaranteed to work in all cases and only uses a subset of the full API.
+The CLI is fully functional, but it is not guaranteed to work in all cases.
 
-The example currently works with 2 bands (TCG Ranges) only and must be run as Administrator/root.
+The script must have low level access to the drives, this requires modifying the drive handle permissions, or running as Administrator/root 
 
 ## To interact with the drive
 In order to interact with the drive, the user must pass in the drive handle, this is how the OS talks to the drive.
@@ -56,9 +56,10 @@ It is the default operation, if `--operation=` is not used, the script will invo
 Usage: `python3 sed_cli.py --device=<device> --operation=printdriveinfo`
 
 Information printed:
+Drive Cert - Indicates if the drive is signed with authentic Seagate FW
 Drive Handle  - The drive handle being used
-Model Number\* - The model number of the drive \*only available for FIPS configs
-FW Revision\*  - The FW revision of the drive \*only available for FIPS configs
+TCG Config - Indicates if Enterprise or Opalv2
+FIPS Standard\* - Lists the FIPS standard to which the drive is configured \*only available for FIPS configs
 FIPS Compliant\* - True or False, indicates if the drive is FIPS compliant \*only available for FIPS configs
 WWN - The drive's world wide name
 MSID - The drive's manufacturing secure ID
@@ -105,6 +106,12 @@ Usage: `python3 sed_cli.py --device=<device> --operation=configureband --bandno=
 `rangelength` - The length, in LBAs, to configure the band with (optional)
 `lockonreset` - If used, band will enable lockonreset, if not used, band will disable lockonreset
 
+**addband**
+`addband` will add an additional band, up to 15 are supported.  (`configureband` will also automatically add a band, if it is not currently enabled)
+
+Usage: `python3 sed_cli.py --device=<device> --operation=addband --bandno=<bandno>`
+`bandno` - The band number to add
+
 **lockband**
 `lockband` will lock the indicated LBA band.
 
@@ -144,15 +151,28 @@ Usage: `python3 sed_cli.py --device=<device> --operation=unlockport --port=<port
 `port` - The port to unlock
 
 **enablefipsmode**
-`enablefipsmode` will enable FIPS compliance, by enabling locking on all bands, and disabling FW downloads
+`enablefipsmode` will enable FIPS compliance, by enabling locking on all bands, disabling FW downloads, disabling MakerSim authority, and requiring minimum PIN lengths
 
-Examples:   
-- `python3 sample_cli.py /dev/sd? store read`
-- `python3 sample_cli.py /dev/sd? store write`
+Usage: `python3 sed_cli.py --device=<device> --operation=enablefipsmode`
 
-**To enable FW attestation on the drive:**
+**enabletls**
+`enabletls` will enable TLS communication, note this is not supported on Windows
 
-Usage: `python3 sample_cli.py <device> <operations> <flags>`
+Usage: `python3 sed_cli.py --device=<device> --operation=enabletls`
 
-Examples:   
-- `python3 sample_cli.py /dev/sd? fwattest enable`
+**disabletls**
+`disabletls` will disable TLS communication
+
+Usage: `python3 sed_cli.py --device=<device> --operation=disabletls`
+
+**writedatastore**
+`writedatastore` will take a file, up to 768 bytes in size, and write it to the internal SED DataStore
+
+Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain=<filetoread>`
+`datain` - The file to read the data from
+
+**readdatastore**
+`readdatastore` will read the SED DataStore, and either print it, or write it to file
+
+Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
+`dataou` - (Optional) The file to write the data to

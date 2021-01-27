@@ -1,33 +1,15 @@
-#-----------------------------------------------------------------------------
-# Do NOT modify or remove this copyright
-#
-# Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the 'License');
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an 'AS IS' BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-#****************************************************************************
-
 import argparse
 import json
 import logging
 import os
 import sys
 import time
-from enum import Enum
+import uuid
 
 ## Add TCGstorageAPI path
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
+import TCGstorageAPI.tcgSupport as tcgSupport
 from TCGstorageAPI.tcgapi import Sed as SED
 from keymanager import keymanager_vault
 from keymanager import keymanager_json
@@ -41,13 +23,16 @@ def parse_args():
     parser.add_argument('--bandno', default=0, type=int,
                         help='The band to operate on')
 
-    parser.add_argument('--vaultconfig', default='vaultcfg.json',
-                        help='The filename of the vault config file')
+    parser.add_argument('--datain', default=None,
+                        help='The file to write to the SED datastore')
+
+    parser.add_argument('--dataout', default=None,
+                        help='Write the SED datastore to this file')
 
     parser.add_argument('--device', default=None,
                         help='The OS path to the device under operation')
 
-    parser.add_argument('--keymanager', default='vault',
+    parser.add_argument('--keymanager', default='vault', choices=('json', 'vault'),
                         help='The keymanager to use')
 
     parser.add_argument('--lockonreset', action='store_true', default=False,
@@ -56,7 +41,7 @@ def parse_args():
     parser.add_argument('--logfile', default='sedcfg.log',
                         help='The filename of the logfile to write')
 
-    parser.add_argument('--port', choices=('UDS', 'FWDownload'),
+    parser.add_argument('--port', choices=('UDS', 'FWDownload', 'ActivationIEEE1667'),
                         help='The port to lock or unlock')
 
     parser.add_argument('--psid', default=None,
@@ -68,22 +53,31 @@ def parse_args():
     parser.add_argument('--rangelength', default=None, type=auto_int,
                         help='The length of the band')
 
+    parser.add_argument('--vaultconfig', default='vaultcfg.json',
+                        help='The filename of the vault config file')
+
     parser.add_argument('--operation', default='printdriveinfo', choices=(
+        'addband',
         'bandtest',
         'configureband',
         'configureport',
+        'disabletls',
         'enablefipsmode',
+        'enabletls',
         'giveupownership',
         'eraseband',
         'lockband',
         'lockport',
         'printbandinfo',
         'printdriveinfo',
+        'readdatastore',
+        'removeband',
         'revertdrive',
         'rotatekeys',
         'takeownership',
         'unlockband',
         'unlockport',
+        'writedatastore',
     ))
 
     opts = parser.parse_args()
@@ -91,30 +85,14 @@ def parse_args():
     if opts.operation == 'revertdrive' and not opts.psid:
         parser.error('--psid argument is mandatory for the revertdrive operation')
 
+    if opts.operation == 'writedatastore' and not opts.datain:
+        parser.error('--datain argument is mandatory for the writedatastore operation')
+
     if not opts.device:
         parser.error('--device argument is mandatory')
 
-    if opts.keymanager == 'json':
-        opts.keymanager = keyManagerType.JSON
-    else:
-        opts.keymanager = keyManagerType.VAULT
-
     return opts
 
-## 
-class keyManagerType(Enum):
-    JSON = 1
-    VAULT = 2
-
-#***********************************************************************************************************************
-## cSEDConfig
-#
-#  This is a class for performing operations on the SED drive
-#
-#  Attributes:
-#    deviceHandle: Device Handle of drive (ex: /dev/sdb)
-#    KeyManagerType: Value indicating which KeyManager type to use
-#    opts: The argparse object
 #***********************************************************************************************************************
 class cSEDConfig(object):
     def __init__(self, deviceHandle, KeyManagerType, opts):
@@ -124,13 +102,10 @@ class cSEDConfig(object):
         self.log_filename = self.opts.logfile
         self.deviceHandle = deviceHandle
         self.driveType = None
-
-        ## Initialize Authority Dictionaries
-        self.authList = ['SID', 'Admin1']
-        self.userList = ['User1']
-        self.authDict = {'SID': 'SID', 'Admin1': 'SID', 'User1': 'Admin1'}
-        self.ownerDict = {'SID': 'SID', 'Admin1': 'Admin1', 'User1': 'Admin1'}
-        self.objDict = {'SID': None, 'Admin1': 'C_PIN_Admin1', 'User1': 'C_PIN_User1'}
+        self.LockingSP = None
+        self.LockingSP_Obj = None
+        self.AdminSP = 'SID'
+        self.initialBandList = list()
 
         ## Initialize Logger
         logging.basicConfig(
@@ -140,10 +115,10 @@ class cSEDConfig(object):
         self.logger = logging.getLogger(self.log_filename)
 
         ## Initialize KeyManager
-        if KeyManagerType == keyManagerType.VAULT:  ## Vault KeyManager
+        if KeyManagerType == 'vault':  ## Vault KeyManager
             self.keyManager = keymanager_vault.keymanager_vault(self.opts.vaultconfig)
 
-        elif KeyManagerType == keyManagerType.JSON: ## JSON KeyManager
+        elif KeyManagerType == 'json': ## JSON KeyManager
             self.keyManager = keymanager_json.keymanager_json()
         else:
             print('Unknown KeyManager Type!')
@@ -175,11 +150,20 @@ class cSEDConfig(object):
         ## Initialize the mSID
         self.initial_cred = self.SED.mSID
 
-        ## Check Security Type
+        ## Configure variables based on security type
         if self.SED.SSC == 'Enterprise':
             self.logger.info('SED configuration is Enterprise')
+            self.LockingSP = 'EraseMaster'
+            self.LockingSP_Obj = None
+            self.initialBandList.append('BandMaster0')
+            self.initialBandList.append('BandMaster1')
+
         elif self.SED.SSC == 'Opalv2':
             self.logger.info('SED configuration is Opalv2')
+            self.LockingSP = 'Admin1'
+            self.LockingSP_Obj = 'C_PIN_Admin1'
+            self.initialBandList.append('User1')
+
         else:
             print('SED configuration is Unknown/Unsupported (Type {}) - Exiting Script'.format(self.SED.SSC))
             sys.exit()
@@ -199,8 +183,6 @@ class cSEDConfig(object):
         print('Drive Handle   = {}'.format(self.deviceHandle))
         print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():
-            print('Model Number   = {}'.format(self.SED.fipsCompliance()['hardwareVersion']))
-            print('FW Revision    = {}'.format(self.SED.fipsCompliance()['descriptorVersion']))
             print('FIPS Compliant = {}'.format(self.SED.fipsApprovedMode))
         print('WWN            = {:X}'.format(self.SED.wwn))
         print('MSID           = {}'.format(self.SED.mSID))
@@ -213,93 +195,188 @@ class cSEDConfig(object):
     #  description: Prints various information about the drive's state to console
     #********************************************************************************
     def printSecurityInfo(self):
-        SEDInfo = self.SED.lockingInfo()
-        print('Max Ranges = {}'.format(SEDInfo.MaxRanges))
-        print('Encryption Support = {}'.format(SEDInfo.EncryptSupport))
-        print('BlockSize = {}'.format(SEDInfo.LogicalBlockSize))
-        print('LowestAlignedLBA = {}'.format(SEDInfo.LowestAlignedLBA))
-        print('AlignmentGranularity = {}'.format(SEDInfo.AlignmentGranularity))
-        print('AlignmentRequired = {}'.format(SEDInfo.AlignmentRequired))
-        print('MaxReEncryptions = {}'.format(SEDInfo.MaxReEncryptions))
-        print('KeysAvailableCfg = {}'.format(SEDInfo.KeysAvailableCfg))
+        if self.SED.SSC == 'Enterprise':
+            SEDInfo = self.SED.lockingInfo()
+            print('Max Ranges = {}'.format(SEDInfo.MaxRanges))
+            print('Encryption Support = {}'.format(SEDInfo.EncryptSupport))
+            print('BlockSize = {}'.format(SEDInfo.LogicalBlockSize))
+            print('LowestAlignedLBA = {}'.format(SEDInfo.LowestAlignedLBA))
+            print('AlignmentGranularity = {}'.format(SEDInfo.AlignmentGranularity))
+            print('AlignmentRequired = {}'.format(SEDInfo.AlignmentRequired))
+            print('MaxReEncryptions = {}'.format(SEDInfo.MaxReEncryptions))
+            print('KeysAvailableCfg = {}'.format(SEDInfo.KeysAvailableCfg))
 
     #********************************************************************************
     ##        name: takeOwnership
     #  description: Takes ownership of a drive by replacing the initial credentials
     #               with unique values, which are saved to the KeyManager
+    #       return: False if successfull
+    #               True if failure
     #********************************************************************************
-    def takeOwnership(self, userList=['SID', 'EraseMaster', 'BandMaster0', 'BandMaster1']):
+    def takeOwnership(self):
         failureStatus = False
 
         # Check that SID is unowned
-        if not self.SED.checkPIN('SID', self.keyManager.getKey(self.wwn, 'SID')):
+        if not self.SED.checkPIN(self.AdminSP, self.initial_cred):
             print('Ownership of SID already taken')
-            return True
+            failureStatus = True
+            return failureStatus
 
         # Initialize keyManager with default SID
-        self.keyManager.setKey(self.wwn, 'SID', self.SED.mSID)
+        self.keyManager.setKey(self.wwn, self.AdminSP, self.initial_cred)
 
-        if self.SED.SSC == 'Enterprise':
-            ## Update each credential
-            for user in userList:
-                newValue = self.keyManager.generateRandomValue()
-                if self.SED.checkPIN( user, bytes(self.SED.mSID, encoding='utf8')) == True:
-                    self.SED.changePIN(user, newValue, (None, self.initial_cred))
-                    if self.SED.checkPIN(user, newValue):
-                        print('Took ownership of {}'.format(user))
-                        self.keyManager.setKey(self.wwn, user, newValue)
-                    else:
-                        print('Failed to take ownership of {}'.format(user))
-                        failureStatus = True
-                else:
-                    print('Ownership of {} already taken'.format(user))
-
-        elif self.SED.SSC == 'Opalv2':
-            failureStatus = False
-
-            # Step through each Authority
-            for authority in self.authDict.keys():
-                newValue = self.keyManager.generateRandomValue()
-
-                # Enable Users under Admin1
-                if authority in self.userList:
-                    if self.SED.enableAuthority('Admin1', True, authority, authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
-                        print('Enabled {}'.format(authority))
-
-                # Check if PIN is the initial_cred, else use key from authority dictionary
-                if authority == 'Admin1' and self.SED.checkPIN(authority, self.initial_cred):
-                    defaultKey = self.initial_cred
-                else:
-                    defaultKey = self.keyManager.getKey(self.wwn, self.authDict[authority])
-
-                # Change PIN, and verify it changed
-                self.SED.changePIN(
-                    self.ownerDict[authority],
-                    newValue, 
-                    authAs=(None, defaultKey), 
-                    obj=self.objDict[authority])
-
-                if self.SED.checkPIN(authority, newValue):
-                    print('Took ownership of {}'.format(authority))
-                    self.keyManager.setKey(self.wwn, authority, newValue)
-                else:
-                    print('Failed to take ownership of {}'.format(authority))
-                    failureStatus = True
-                    continue
-
-                # Activate SID
-                if authority == 'SID':
-                    if self.SED.activate('SID', authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))):
-                        print('Activated SID')
-                    else:
-                        print('Failed to activate SID')
-                        failureStatus = True
-        
+        # Take Ownership of AdminSP
+        newKey = self.keyManager.generateRandomValue()
+        self.SED.changePIN(self.AdminSP, newKey, (None, self.initial_cred))
+        if self.SED.checkPIN(self.AdminSP, newKey):
+            print('Took ownership of AdminSP ({})'.format(self.AdminSP))
+            self.keyManager.setKey(self.wwn, self.AdminSP, newKey)
         else:
-            print('Unknown SSC type')
+            print('Failed to take ownership of AdminSP ({})'.format(self.AdminSP))
             failureStatus = True
 
+        # If Opalv2, AdminSP needs to be activated
+        if self.SED.SSC == 'Opalv2':
+            if self.SED.activate(self.AdminSP, authAs=(self.AdminSP, self.keyManager.getKey(self.wwn, self.AdminSP))):
+                print('Activated AdminSP ({})'.format(self.AdminSP))
+            else:
+                print('Failed to activate AdminSP ({})'.format(self.AdminSP))
+
+        # Take Ownership of LockingSP
+        if self.SED.SSC == 'Enterprise':
+            initialKey = self.initial_cred
+        elif self.SED.SSC == 'Opalv2':
+            initialKey = self.keyManager.getKey(self.wwn, self.AdminSP)
+        else:
+            failureStatus = True
+            return failureStatus
+
+        newKey = self.keyManager.generateRandomValue()
+        self.SED.changePIN(self.LockingSP, newKey, (None, initialKey), self.LockingSP_Obj)
+        if self.SED.checkPIN(self.LockingSP, newKey):
+            print('Took ownership of LockingSP ({})'.format(self.LockingSP))
+            self.keyManager.setKey(self.wwn, self.LockingSP, newKey)
+        else:
+            print('Failed to take ownership of LockingSP({})'.format(self.LockingSP))
+
+        # Take Ownership of Bands
+        for bandOwner in self.initialBandList:
+            newKey = self.keyManager.generateRandomValue()
+
+            # Setup variables for each config
+            if self.SED.SSC == 'Enterprise':
+                auth = bandOwner
+                authAs = (None, self.initial_cred)
+                obj = None
+            elif self.SED.SSC == 'Opalv2':
+                auth = self.LockingSP
+                authAs = (None, self.keyManager.getKey(self.wwn, self.LockingSP))
+                obj = 'C_PIN_{}'.format(bandOwner)
+                # If Opalv2, bands needs to be activated first
+                if self.SED.enableAuthority(self.LockingSP, True, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
+                    print('Enabled {}'.format(bandOwner))
+                else:
+                    print('Failed to enable {}'.format(bandOwner))
+                    failureStatus = True
+            else:
+                return True
+
+            # Take ownership
+            self.SED.changePIN(auth, newKey, authAs, obj)
+            if self.SED.checkPIN(bandOwner, newKey):
+                print('Took ownership of {}'.format(bandOwner))
+                self.keyManager.setKey(self.wwn, bandOwner, newKey)
+            else:
+                print('Failed to take ownership of {}'.format(bandOwner))
+
         return failureStatus
+
+    #********************************************************************************
+    ##        name: rotateKeys
+    #  description: Retrieves the password of each user from the KeyManager,
+    #               changes the password of each user on the drive,
+    #               saves the updated passwords to the KeyManager
+    #********************************************************************************
+    def rotateKeys(self, giveUpOwnership = False):
+
+        # Create correct verb for message
+        if giveUpOwnership:
+            verb1 = 'Gave Up'
+            verb2 = 'Give Up'
+        else:
+            verb1 = 'Updated'
+            verb2 = 'Update'
+
+        # Rotate Band Keys
+        for bandOwner in self.keyManager.getBandNames(self.wwn):
+            if giveUpOwnership:
+                newKey = self.initial_cred
+            else:
+                newKey = self.keyManager.generateRandomValue()
+
+            # Setup variables for each config
+            if self.SED.SSC == 'Enterprise':
+                auth = bandOwner
+                authAs = (None, self.keyManager.getKey(self.wwn, bandOwner))
+                obj = None
+            elif self.SED.SSC == 'Opalv2':
+                auth = self.LockingSP
+                authAs = (None, self.keyManager.getKey(self.wwn, self.LockingSP))
+                obj = 'C_PIN_{}'.format(bandOwner)
+            else:
+                return True
+            
+            # Update keys
+            self.SED.changePIN(auth, newKey, authAs, obj)
+            if self.SED.checkPIN(bandOwner, newKey):
+                print('{} {}'.format(verb1, bandOwner))
+                self.keyManager.setKey(self.wwn, bandOwner, newKey)
+            else:
+                print('Failed to {} {}'.format(verb2, bandOwner))
+                failureStatus = True
+
+            # If giving up ownership on Opalv2, bands needs to be disabled
+            if self.SED.SSC == 'Opalv2' and giveUpOwnership:
+                if self.SED.enableAuthority(self.LockingSP, False, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
+                    print('Disabled {}'.format(bandOwner))
+                else:
+                    print('Failed to disable {}'.format(bandOwner))
+                    failureStatus = True
+
+        # Rotate LockingSP
+        if giveUpOwnership:
+            newKey = self.initial_cred
+        else:
+            newKey = self.keyManager.generateRandomValue()
+        currentKey = self.keyManager.getKey(self.wwn, self.LockingSP)
+        self.SED.changePIN(self.LockingSP, newKey, (None, currentKey), self.LockingSP_Obj)
+        if self.SED.checkPIN(self.LockingSP, newKey):
+            print('{} LockingSP ({})'.format(verb1, self.LockingSP))
+            self.keyManager.setKey(self.wwn, self.LockingSP, newKey)
+        else:
+            print('Failed to {} LockingSP({})'.format(verb2, self.LockingSP))
+            failureStatus = True
+
+        # Special case for Opalv2
+        if giveUpOwnership and self.SED.SSC == 'Opalv2':
+            if self.SED.revert_lockingSP(self.keyManager.getKey(self.wwn, self.LockingSP)):
+                print('Reverted LockingSP ({})'.format(self.LockingSP))
+            else:
+                print('Failed to revert LockingSP ({})'.format(self.LockingSP))
+                failureStatus = True
+
+        # Rotate AdminSP
+        if giveUpOwnership:
+            newKey = self.initial_cred
+        else:
+            newKey = self.keyManager.generateRandomValue()
+        self.SED.changePIN(self.AdminSP, newKey, (None, self.keyManager.getKey(self.wwn, self.AdminSP)))
+        if self.SED.checkPIN(self.AdminSP, newKey):
+            print('{} AdminSP ({})'.format(verb1, self.AdminSP))
+            self.keyManager.setKey(self.wwn, self.AdminSP, newKey)
+        else:
+            print('{} AdminSP ({})'.format(verb2, self.AdminSP))
+            failureStatus = True
 
     #********************************************************************************
     #  description: Gives up ownership of a drive by resetting credentials to default
@@ -322,88 +399,18 @@ class cSEDConfig(object):
         return failureStatus
 
     #********************************************************************************
-    ##        name: rotateKeys
-    #  description: Retrieves the password of each user from the KeyManager,
-    #               changes the password of each user on the drive,
-    #               saves the updated passwords to the KeyManager
+    ##        name: revertDrive
+    #  description: Allows the user to revert the drive to factory settings
     #********************************************************************************
-    def rotateKeys(self, giveUpOwnership = False):
-        failureStatus = False
-
-        if giveUpOwnership:
-            verb = "Gave Up"
+    def revertDrive(self):
+        if self.SED.revert(self.opts.psid):
+            print('Drive succesfully erased and reverted to factory settings')
+            self.keyManager.deletePasswords(self.wwn)
+            return True
         else:
-            verb = "Updated"
-
-        if self.SED.SSC == 'Enterprise':
-            # Check if WWN is in keymanager, if not, exit
-            if self.wwn not in self.keyManager.getWWNs():
-                print('WWN {} not in KeyManager'.format(self.wwn))
-                failureStatus = True
-            else:
-                cred_table = self.keyManager.getPasswords(self.wwn)
-                for user in cred_table.keys():
-                    if cred_table[user]:
-                        if giveUpOwnership:
-                            newValue = self.initial_cred
-                        else:
-                            newValue = self.keyManager.generateRandomValue()
-
-                        # Before attempting to update the password, validate the current one, if incorrect, exit
-                        if not self.SED.checkPIN( user, self.keyManager.getKey(self.wwn, user) ):
-                            print('Password for {} in KeyManager is incorrect! Fix or RevertSP'.format(user))
-                            failureStatus = True
-
-                        # Change password, validate new password, update keymanager
-                        else:
-                            self.SED.changePIN( user, newValue, (user, self.keyManager.getKey(self.wwn, user)))
-                            if self.SED.checkPIN( user, newValue ):
-                                print('Successfully {} {}'.format(verb, user))
-                                self.keyManager.setKey(self.wwn, user, newValue)
-                            else:
-                                print('Error {} {}'.format(verb, user))
-                                failureStatus = True
-
-        elif self.SED.SSC == 'Opalv2':
-            # Step through each Authority
-            for authority in reversed(self.authList):
-                if not self.SED.checkPIN(authority, self.keyManager.getKey(self.wwn, authority)):
-                    print('Password for {} in KeyManager is incorrect! Fix or RevertSP'.format(authority))
-                    failureStatus = True
-                    continue
-
-                # Create new key
-                if giveUpOwnership:
-                    newValue = self.initial_cred
-                else:
-                    newValue = self.keyManager.generateRandomValue()
-
-                # Change PIN, and verify it changed
-                self.SED.changePIN(
-                    self.ownerDict[authority],
-                    newValue, 
-                    authAs=(None, self.keyManager.getKey(self.wwn, self.ownerDict[authority])), 
-                    obj=self.objDict[authority])
-
-                if self.SED.checkPIN(authority, newValue):
-                    print('Successfully {} {}'.format(verb, authority))
-                    self.keyManager.setKey(self.wwn, authority, newValue)
-                else:
-                    print('Error {} {}'.format(verb, authority))
-                    failureStatus = True
-                    continue
-
-                # Disable User1/User2 under Admin1 if giving up ownership
-                if giveUpOwnership == True:
-                    if authority in self.userList:
-                        if self.SED.enableAuthority('Admin1', False, authority, authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
-                            print('Disabled {}'.format(authority))
-
-        else:
-            print('Unknown SSC type')
-            failureStatus = True
-
-        return failureStatus
+            print('Drive was not erased, check that the PSID is correct')
+            print('Entered PSID - \'{}\''.format(self.opts.psid))
+            return False
 
     #********************************************************************************
     ##        name: configureBands
@@ -414,36 +421,41 @@ class cSEDConfig(object):
     #              rangeLength - The Length of the desired LBA band
     #               lock_state - Lock the Band
     #      lock_on_reset_state - Indicate if the band should lock on reset
+    #      return : False - No issues
+    #                True - Errors occurred
     #********************************************************************************
-    def configureBands(self, bandNumber=-1, rangeStart=None, rangeLength=None, lock_state=False, lock_on_reset_state=True):
+    def configureBands(self, bandNumber=0, rangeStart=None, rangeLength=None, lock_state=False, lock_on_reset_state=True):
         self.logger.debug('Configuring bands on the drive')
         if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
-            print('Take ownership of drive before configuring')
-            return False
+            print('Take ownership of drive before configuring a band')
+            return True
 
         ## Configure Band
         if self.SED.SSC == 'Enterprise':
-            user = 'BandMaster{}'.format(bandNumber)
+            auth = 'BandMaster{}'.format(bandNumber)
+            if bandNumber > 1:
+                print('Enterprise does not yet support bands 2-15')
+                return True
+            elif auth not in self.keyManager.getBandNames(self.wwn):
+                # Add band, if it hasn't been enabled yet
+                self.addBand(bandNumber)
         else:
-            user = 'Admin1'
+            auth = 'Admin1'
             if bandNumber == 0:
                 print('Opalv2 does not support Global Range')
-            elif bandNumber > 2:
-                print('Opalv2 only supports bands 1 and 2')
-            return False
+                return True
+            elif 'User{}'.format(bandNumber) not in self.keyManager.getBandNames(self.wwn):
+                # Add band, if it hasn't been enabled yet
+                self.addBand(bandNumber)
 
         if bandNumber == '0' and rangeStart != None:
-            print("Can't change range for global locking range")
-            return False
-
-        elif bandNumber != '0' and rangeStart == None:
-            print("Please provide RangeStart and RangeLength values")
-            return False
+            print('Can\'t change range for global locking range')
+            return True
 
         configureStatus = self.SED.setRange(
-            user,
+            auth,
             int(bandNumber),
-            authAs=(user, self.keyManager.getKey(self.wwn, user)),
+            authAs=(auth, self.keyManager.getKey(self.wwn, auth)),
             RangeStart=int(rangeStart) if rangeStart is not None else None,
             RangeLength=int(rangeLength) if rangeStart is not None else None,
             ReadLockEnabled=1,
@@ -452,27 +464,196 @@ class cSEDConfig(object):
             ReadLocked=lock_state,
             WriteLocked=lock_state,
             )
-        
-        # If Opal, enable access to users
+
+        #If Opalv2, allow the User to access the band
         if self.SED.SSC == 'Opalv2':
-            if bandNumber == 1:
-                rangeList = ['ACE_Locking_Range1_set_RdLocked', 'ACE_Locking_Range1_Set_WrLocked']
-            else:
-                rangeList = ['ACE_Locking_Range2_set_RdLocked', 'ACE_Locking_Range2_Set_WrLocked']
-            for object in rangeList:
-                if self.SED.enable_range_access(
-                    object,
+            for object in [
+                'ACE_Locking_Range{}_Set_RdLocked'.format(bandNumber), 
+                'ACE_Locking_Range{}_Set_WrLocked'.format(bandNumber)]:
+                self.SED.enable_range_access(
+                    object, 
                     'User{}'.format(bandNumber),
                     'Admin1',
-                    (None, self.keyManager.getKey(self.wwn, 'Admin1'))):
-                    print('Enabled {}'.format(object))
+                    ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1')))
 
         if configureStatus:
             print('Band{} is configured'.format(bandNumber))
-            return True
+            return False
         else:
             print('Error configuring Band{}'.format(bandNumber))
-            return False
+            return True
+
+    #********************************************************************************
+    ##        name: lockunlockBand
+    #  description: Allows the user to lock/unlock the indicated band
+    #   parameters:
+    #               bandNumber - The band to lock/unlock
+    #               lock_state - If true, lock the band. If false, unlock the band
+    #********************************************************************************
+    def lockunlockBand(self, bandNumber, lock_state):
+        if self.SED.SSC == 'Enterprise':
+            return self.configureBands(bandNumber, lock_state=lock_state)
+
+        elif self.SED.SSC == 'Opalv2':
+            user = 'User{}'.format(bandNumber)
+            if self.SED.setRange(
+                user,
+                int(bandNumber),
+                (user, self.keyManager.getKey(self.wwn, user)),
+                ReadLocked=lock_state, WriteLocked=lock_state):
+                print('Locked Band{}'.format(bandNumber))
+            else:
+                print('Error Unlocking Band{}'.format(bandNumber))
+
+    #********************************************************************************
+    ##        name: lockBand
+    #  description: Allows the user to lock the indicated band
+    #   parameters: bandNumber - The band to lock
+    #********************************************************************************
+    def lockBand(self, bandNumber):
+        return self.lockunlockBand(bandNumber, True)
+
+    #********************************************************************************
+    ##        name: unlockBand
+    #  description: Allows the user to unlock the indicated band
+    #   parameters: bandNumber - The band to unlock
+    #********************************************************************************
+    def unlockBand(self, bandNumber):
+        return self.lockunlockBand(bandNumber, False)
+
+    #********************************************************************************
+    ##        name: eraseBand
+    #  description: Allows the user to erase the indicated band
+    #   parameters:
+    #               bandNumber - The band to erase
+    #********************************************************************************
+    def eraseBand(self, bandNumber):
+        if self.SED.SSC == 'Enterprise':
+            user = 'BandMaster{}'.format(bandNumber)
+            if self.SED.erase(bandNumber, authAs=('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster'))):
+                print('Band{} sucessfully erased'.format(bandNumber))
+                
+                # In Enterprise, band erasure will revert ownership, so delete the band from the key list
+                self.keyManager.deleteKey(self.wwn, user)
+
+                # Then readd
+                self.addBand(bandNumber)
+                return True
+            else:
+                print('Error - Band{} was not erased'.format(bandNumber))
+                return False
+
+        elif self.SED.SSC == 'Opalv2':
+            user = 'User{}'.format(bandNumber)
+
+            # Get the raw range_key from the get_MEK function
+            m1, m2 = self.SED.get_MEK(bandNumber, 'Admin1', ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1')))
+
+            # Which object we want is based on the range number, so we use the getattr function
+            method_to_call = getattr(m1, 'K_AES_256_Range{}_Key_UID'.format(bandNumber))
+            range_key = int.from_bytes(method_to_call, 'big')
+
+            if self.SED.gen_key(
+                range_key,
+                'Admin1',
+                ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))):
+                print('Band{} sucessfully erased'.format(bandNumber))
+                return True
+            else:
+                print('Error - Band{} was not erased'.format(bandNumber))
+                return False
+
+    #********************************************************************************
+    def addBand(self, bandNumber):
+        failureStatus = False
+
+        if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
+            print('Take ownership of drive before adding a band')
+            return True
+
+        if self.SED.SSC == 'Enterprise':
+            if bandNumber > 1:
+                print('Bands 2-15 are not yet supported')
+                failureStatus = True
+                return failureStatus
+
+            newKey = self.keyManager.generateRandomValue()
+
+            # Setup variables for each config
+            bandOwner = 'BandMaster{}'.format(bandNumber)
+            authAs = (None, self.initial_cred)
+            obj = None
+
+            # Take ownership
+            self.SED.changePIN(bandOwner, newKey, authAs, obj)
+            if self.SED.checkPIN(bandOwner, newKey):
+                print('Took ownership of {}'.format(bandOwner))
+                self.keyManager.setKey(self.wwn, bandOwner, newKey)
+            else:
+                print('Failed to take ownership of {}'.format(bandOwner))
+
+        elif self.SED.SSC == 'Opalv2':
+            bandOwner = 'User{}'.format(bandNumber)
+            
+            auth = self.LockingSP
+            authAs = (None, self.keyManager.getKey(self.wwn, self.LockingSP))
+            obj = 'C_PIN_{}'.format(bandOwner)
+
+            # Band needs to be activated first
+            if self.SED.enableAuthority(self.LockingSP, True, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
+                print('Enabled {}'.format(bandOwner))
+            else:
+                print('Failed to enable {}'.format(bandOwner))
+                failureStatus = True
+
+            # Take ownership
+            newKey = self.keyManager.generateRandomValue()
+            self.SED.changePIN(auth, newKey, authAs, obj)
+            if self.SED.checkPIN(bandOwner, newKey):
+                print('Took ownership of {}'.format(bandOwner))
+                self.keyManager.setKey(self.wwn, bandOwner, newKey)
+            else:
+                print('Failed to take ownership of {}'.format(bandOwner))
+
+        return failureStatus
+
+    #********************************************************************************
+    def removeBand(self, bandNumber):
+        failureStatus = False
+        if self.SED.SSC == 'Enterprise':
+            print('Band Removal is not yet supported on Enerprise Configs')
+            failureStatus = True
+            return failureStatus
+
+        elif self.SED.SSC == 'Opalv2':
+            bandOwner = 'Band{}'.format(bandNumber)
+            if bandOwner not in self.keyManager.getBandNames(self.wwn):
+                print('{} is not currently enabled'.format(bandOwner))
+                failureStatus = True
+                return failureStatus
+            else:
+                self.keyManager.deleteKey(bandOwner)
+
+            # Setup variables for each config
+            auth = self.LockingSP
+            authAs = (None, self.keyManager.getKey(self.wwn, self.LockingSP))
+            obj = 'C_PIN_{}'.format(bandOwner)
+            
+            # Take ownership
+            newKey = self.initial_cred
+            self.SED.changePIN(auth, newKey, authAs, obj)
+            if self.SED.checkPIN(bandOwner, newKey):
+                print('Gave up {}'.format(bandOwner))
+                self.keyManager.setKey(self.wwn, bandOwner, newKey)
+            else:
+                print('Failed to give up {}'.format(bandOwner))
+
+            # Band needs to be disabled
+            if self.SED.enableAuthority(self.LockingSP, False, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
+                print('Disabled {}'.format(bandOwner))
+            else:
+                print('Failed to disable {}'.format(bandOwner))
+                failureStatus = True
 
     #********************************************************************************
     ##        name: printBandInfo
@@ -510,74 +691,6 @@ class cSEDConfig(object):
         return rc
 
     #********************************************************************************
-    ##        name: lockBand
-    #  description: Allows the user to lock/unlock the indicated band
-    #   parameters:
-    #               bandNumber - The band to lock/unlock
-    #               lock_state - If true, lock the band. If false, unlock the band
-    #********************************************************************************
-    def lockBand(self, bandNumber):
-        return self.configureBands(bandNumber, lock_state=True)
-
-    #********************************************************************************
-    ##        name: unlockBand
-    #  description: Allows the user to unlock the indicated band
-    #   parameters:
-    #               bandNumber - The band to unlock
-    #********************************************************************************
-    def unlockBand(self, bandNumber):
-        return self.configureBands(bandNumber, lock_state=False)
-
-    #********************************************************************************
-    ##        name: eraseBand
-    #  description: Allows the user to erase the indicated band
-    #   parameters:
-    #               bandNumber - The band to erase
-    #********************************************************************************
-    def eraseBand(self, bandNumber):
-        user = 'BandMaster{}'.format(bandNumber)
-        if self.SED.erase(bandNumber, authAs=('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster'))):
-            print('Band{} sucessfully erased'.format(bandNumber))
-            return True
-        else:
-            print('Error - Band{} was not erased'.format(bandNumber))
-            return False
-
-    #********************************************************************************
-    ##        name: revertDrive
-    #  description: Allows the user to revert the drive to factory settings
-    #********************************************************************************
-    def revertDrive(self):
-        if self.SED.revert(self.opts.psid):
-            print('Drive succesfully erased and reverted to factory settings')
-            return True
-        else:
-            print('Drive was not erased, check that the PSID is correct')
-            print('Entered PSID - \'{}\''.format(self.opts.psid))
-            return False
-
-    #********************************************************************************
-    ##        name: printPortStatus
-    #  description: Prints the status of the UDS and FWDownload ports
-    #********************************************************************************
-    def printPortStatus(self):
-        print('Port                Status       LockOnReset')
-        for uid in self.SED.ports.keys():
-            # If default cred, use them, else look up via keymanager
-            if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
-                port = self.SED.getPort(uid, authAs=('SID', bytes(self.SED.mSID, encoding='utf8')))
-            else:
-                port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
-            if port is not None and hasattr(port, 'Name'):
-                print('{}{}{}{}{}'.format(
-                    port.Name,                                                # Port Name
-                    (20 - len(port.Name)) * ' ',                              # Whitespace padding
-                    ('Unlocked','Locked')[port.PortLocked],                   # Port State
-                    (13 - len(('Unlocked','Locked')[port.PortLocked])) * ' ', # Whitespace padding
-                    ('Disabled','Enabled')[port.LockOnReset],                 # Lock on Reset State
-                    ))
-
-    #********************************************************************************
     ##        name: configurePort
     #  description: configures the indicated port
     #   parameters:
@@ -586,6 +699,9 @@ class cSEDConfig(object):
     #    lock_on_reset_state - If true, enable lock-on-reset. If false, disable lock-on-reset
     #********************************************************************************
     def configurePort(self, portname, lock_state=True, lock_on_reset_state=True):
+        if self.SED.SSC == 'Enterprise' and portname == 'ActivationIEEE1667':
+            print('ActivationIEEE1667 Port is not available on Enterprise')
+            return False
         for uid in self.SED.ports.keys():
             port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
             if port is not None and hasattr(port, 'Name') and port.Name == portname:
@@ -617,6 +733,27 @@ class cSEDConfig(object):
         return self.configurePort(portname, False)
 
     #********************************************************************************
+    ##        name: printPortStatus
+    #  description: Prints the status of the UDS and FWDownload ports
+    #********************************************************************************
+    def printPortStatus(self):
+        print('Port                Status       LockOnReset')
+        for uid in self.SED.ports.keys():
+            # If default cred, use them, else look up via keymanager
+            if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
+                port = self.SED.getPort(uid, authAs=('SID', bytes(self.SED.mSID, encoding='utf8')))
+            else:
+                port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
+            if port is not None and hasattr(port, 'Name'):
+                print('{}{}{}{}{}'.format(
+                    port.Name,                                                # Port Name
+                    (20 - len(port.Name)) * ' ',                              # Whitespace padding
+                    ('Unlocked','Locked')[port.PortLocked],                   # Port State
+                    (13 - len(('Unlocked','Locked')[port.PortLocked])) * ' ', # Whitespace padding
+                    ('Disabled','Enabled')[port.LockOnReset],                 # Lock on Reset State
+                    ))
+
+    #********************************************************************************
     ##        name: uploadJSONToVault
     #  description: Allows the user to upload a json credential file to Vault
     #********************************************************************************
@@ -628,31 +765,64 @@ class cSEDConfig(object):
 
     #********************************************************************************
     ##        name: enableFIPS
+    #  description: Enable FIPS compliance by performing the following steps
+    #               1) Disable Makers Authority
+    #               2) Disable Firmware download
+    #               3) Enable locking on all bands
+    #               4) Opalv2 Only - Set minimum PIN length above 4
     #********************************************************************************
     def enableFIPS(self):
         if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
             print('Take ownership of drive before enabling FIPS')
             return False
 
-        # Check that all enabled bands are locked
-        for bandNumber in range(0, 2):
-            lockingInfo, status = self.SED.getRange(
-                bandNumber, 'EraseMaster', authAs=('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster')))
-            if lockingInfo.ReadLockEnabled and lockingInfo.WriteLockEnabled:
-                print('Band{} Locking Enabled'.format(bandNumber))
-            else:
-                print('Band{} Locking Disabled - enable before retrying enablefipsmode'.format(bandNumber))
-                return False
-
         # Disable Makers Authority
         if self.SED.enableAuthority(
             'SID', False, 'Makers', authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))) == False:
             print('Failed to disable Makers Authority')
             return False
+        else:
+            print('Disabled Makers Authority')
 
         # Disable Firmware Download
         if not self.lockPort('FWDownload'):
+            print('Failed to disable FWDownload')
             return False
+        else:
+            print('Disabled FWDownload')
+
+        if self.SED.SSC == 'Enterprise':
+            # Check that all enabled bands are locked
+            for bandNumber in self.keyManager.getBandNames(self.wwn):
+                lockingInfo, status = self.SED.getRange(
+                    int(bandNumber[10:]), 'EraseMaster', authAs=('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster')))
+                if lockingInfo.ReadLockEnabled and lockingInfo.WriteLockEnabled:
+                    print('Band{} Locking Enabled'.format(bandNumber))
+                else:
+                    print('Band{} Locking Disabled - enable before retrying enablefipsmode'.format(bandNumber))
+                    return False
+
+        elif self.SED.SSC == 'Opalv2':
+            # Check that all enabled bands are locked
+            for bandNumber in self.keyManager.getBandNames(self.wwn):
+                lockingInfo, status = self.SED.getRange(
+                    int(bandNumber[4:]), 'Admin1', authAs=('Admin1', self.keyManager.getKey(self.wwn, 'Admin1')))
+                if lockingInfo.ReadLockEnabled and lockingInfo.WriteLockEnabled:
+                    print('{} Locking Enabled'.format(bandNumber))
+                else:
+                    print('{} Locking Disabled - enable before retrying enablefipsmode'.format(bandNumber))
+                    return False
+
+            # Change MinPINlength for Opalv2
+            self.authorities = {'SID': 'SID', 'Admin1': 'C_PIN_Admin1'}
+            for user in self.keyManager.getBandNames(self.wwn):
+                self.authorities[user] = 'C_PIN_{}'.format(user)
+            for auth, auth_obj in self.authorities.items():
+                if self.SED.setMinPINLength(auth, 4, authAs=(auth, self.keyManager.getKey(self.wwn, auth)), obj = auth_obj) is not True:
+                    print('Failed to set MinPINlength for the authorities')
+                    return False
+                else:
+                    print('Set min PIN length for {}'.format(auth))
 
         if self.SED.fipsApprovedMode==True:
             print('FIPS mode of the drive enabled successfully')
@@ -662,33 +832,164 @@ class cSEDConfig(object):
             return False
 
     #********************************************************************************
-    ##        name: isOwned
+    ##        name: TLSOperation
+    #  description: Enable or Disable TLS Communication
     #********************************************************************************
-    def isOwned(self, userList = ['SID', 'EraseMaster', 'BandMaster0', 'BandMaster1']):
-        isOwned = False
+    def TLSOperation(self, enable):
+        if sys.platform == 'win32':
+            print('TLS Support not provided for Windows')
+            return False
 
-        if self.SED.SSC == 'Enterprise':
-            for user in userList:
-                if self.SED.checkPIN(user, bytes(self.SED.mSID, encoding='utf8')) != True:
-                    isOwned = True
+        if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
+            print('Take ownership of drive before modifying TLS state')
+            return False
+
+        authAs = [
+            (self.AdminSP, self.keyManager.getKey(self.wwn, self.AdminSP)),
+            (self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))
+            ]
+        key = tcgSupport.getPsk(self.SED)
+        if not key:
+            print('Pre-Shared Key not generated')
+            return False
+        toUse = self.SED.getPskEntry(0)
+
+        for entryID in range(4):
+            psk = self.SED.getPskEntry(entryID)
+            if not psk:
+                print('Drive doesn\'t support TLS')
+                return False
+            
+            if psk.Enabled and psk.CipherSuite == self.SED.cipherSuite:
+                if enable:
+                    print('TLS already enabled')
+                    return True 
+                else:
+                    print('Disabling TLS - ', end='')
+                    if self.SED.setPskEntry(toUse, authAs, Enabled=False, CipherSuite=self.SED.cipherSuite, PSK=key):
+                        print('Successful')
+                        return True
+                    else:
+                        print('Failed')
+                        return False
+
+            else:
+                if enable:
+                    print('Enabling TLS - ', end='')
+                    if self.SED.setPskEntry(toUse, authAs, Enabled=True, CipherSuite=self.SED.cipherSuite, PSK=key):
+                        print('Successful')
+                        return True
+                    else:
+                        print('Failed')
+                        return False
+
+                else:
+                    print('TLS already disabled')
+                    return True
+
+    #********************************************************************************
+    def enableTLS(self):
+        return self.TLSOperation( True )
+
+    #********************************************************************************
+    def disableTLS(self):
+        return self.TLSOperation( False )
+
+    #********************************************************************************
+    ##        name: preDataStore
+    #  description: Common steps for both Read and Write Datastore
+    #********************************************************************************
+    def preDataStore(self):
+        # Check for Ownership
+        if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
+            print('Take ownership of drive before accessing SED DataStore')
+            return False
+
+        # Variables
+        self.maxPayloadSize = 768
+        self.SED.data_length = 1000 #Enough space to fit payload + extra
+
+        # Make sure TLS is disabled
+        for entryID in range(4):
+            psk = self.SED.getPskEntry(entryID)
+            if not psk:
+                break
+            if psk.Enabled and psk.CipherSuite == self.SED.cipherSuite:
+                print('Please disable TLS')
+                return False
+
+        # Give Opal Read/Write access
+        if self.SED.SSC == 'Opalv2':
+            authAs = ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))
+            self.SED.readaccess('User1', 0, authAs)
+            self.SED.writeaccess('User1', 0, authAs)
+
+    #********************************************************************************
+    ##        name: readDataStore
+    #  description: Read the SED Datastore contents
+    #               if --dataout is set at the command line,
+    #               SED Datastore is written to file
+    #********************************************************************************
+    def readDataStore(self):
+        self.preDataStore()
+        authAs = (self.initialBandList[0], self.keyManager.getKey(self.wwn, self.initialBandList[0]))
+        
+        if self.opts.dataout:
+            print('Reading SED DataStore and writing contents to {}'.format(self.opts.dataout))
         else:
-            if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) != True:
-                isOwned = True
-
-        return isOwned
+            print('Reading SED DataStore')
+        readData = self.SED.readData(self.initialBandList[0], authAs)
+        if not readData:
+            print('DataStore is empty')
+        else:
+            if self.opts.dataout:
+                with open(self.opts.dataout, 'wb') as index:
+                    index.write(readData['payload'])
+            else:
+                print(readData['payload'])
 
     #********************************************************************************
-    # Debug routine
+    ##        name: writeDataStore
+    #  description: Write the contents of --infile to the SED Datastore
+    #********************************************************************************
+    def writeDataStore(self):
+        self.preDataStore()
+        authAs = (self.initialBandList[0], self.keyManager.getKey(self.wwn, self.initialBandList[0]))
+
+        print('Writing contents of {} to SED DataStore'.format(self.opts.datain))
+        if os.path.getsize(self.opts.datain) > self.maxPayloadSize:
+            print('File {} is larger than maximum allowed size of {} bytes'.format(self.opts.datain, self.maxPayloadSize))
+            return False
+        with open(self.opts.datain, 'rb') as index:
+            data = dict()
+            data['iv'] = uuid.uuid4().bytes
+            data['payload'] = index.read()
+            self.SED.data_length = len(tcgSupport.serialize(data))
+            if self.SED.writeData(self.initialBandList[0], data, authAs):
+                print('Write Successful')
+                return True
+            else:
+                print('Write Failed, payload/file may be too large')
+                return True
+
+    #********************************************************************************
+    ##        name: isOwned
+    #  description: Returns True if drive is Owned, False if not
+    #********************************************************************************
+    def isOwned(self):
+        return self.SED.checkPIN(self.AdminSP, self.initial_cred) != True
+
     #********************************************************************************
     def bandTest(self):
-        self.printBandInfo(1)
-        pass
+        
+        deviceCert = self.SED.get_tperSign_cert()
+
+        # Validate the drive cert against the Seagate root cert
+        identity = verifyidentity.VerifyIdentity(deviceCert)
+        identity.validate_drive_cert()
 
 #***********************************************************************************************************************
-## Notes
-#  Working - takeOwnership, rotateKeys, lockPort, configureBands(1), lockBand, eraseBand
-#  Not Working - configureBands (2+), eraseDrive
-#
+# verify cert, tperSign
 #***********************************************************************************************************************
 def main(arguments):
     opts = parse_args()
@@ -696,26 +997,38 @@ def main(arguments):
     # Create the SEDConfig class
     SEDConfig = cSEDConfig(opts.device, opts.keymanager, opts)
 
-    # "Switch" statement on operation
+    # 'Switch' statement on operation
+    if opts.operation == 'addband':
+        SEDConfig.addBand(opts.bandno)
+        pass
+
     if opts.operation == 'bandtest':
         SEDConfig.bandTest()
         pass
 
     if opts.operation == 'configureband':
-        SEDConfig.configureBands(opts.bandno, opts.rangestart, opts.rangelength, lock_state=False, lock_on_reset_state=opts.lockonreset)
-        SEDConfig.printBandInfo(opts.bandno)
+        if not SEDConfig.configureBands(opts.bandno, opts.rangestart, opts.rangelength, lock_state=False, lock_on_reset_state=opts.lockonreset):
+            SEDConfig.printBandInfo(opts.bandno)
         pass
 
-    elif opts.operation == 'configureport':
-        SEDConfig.configurePort(opts.port, lock_state=False, lock_on_reset_state=opts.lockonreset)
-        SEDConfig.printPortStatus()
+    if opts.operation == 'configureport':
+            SEDConfig.configurePort(opts.port, lock_state=False, lock_on_reset_state=opts.lockonreset)
+            SEDConfig.printPortStatus()
+            pass
+
+    if opts.operation == 'disabletls':
+        SEDConfig.disableTLS()
         pass
 
-    elif opts.operation == 'enablefipsmode':
+    if opts.operation == 'enabletls':
+        SEDConfig.enableTLS()
+        pass
+
+    if opts.operation == 'enablefipsmode':
         SEDConfig.enableFIPS()
         pass
 
-    elif opts.operation == 'eraseband':
+    if opts.operation == 'eraseband':
         SEDConfig.printBandInfo(opts.bandno)
         timeToWait = 0 #JRM FIX back to 15
         while timeToWait > 0:
@@ -729,34 +1042,43 @@ def main(arguments):
         print('')
         print('Band Erase has started')
         SEDConfig.eraseBand(opts.bandno)
-        SEDConfig.takeOwnership(['BandMaster{}'.format(opts.bandno)])
         pass
 
-    elif opts.operation == 'giveupownership':
+    if opts.operation == 'giveupownership':
         SEDConfig.giveUpOwnership()
         pass
 
-    elif opts.operation == 'lockband':
+    if opts.operation == 'lockband':
         SEDConfig.lockBand(opts.bandno)
         SEDConfig.printBandInfo(opts.bandno)
         pass
 
-    elif opts.operation == 'lockport':
+    if opts.operation == 'lockport':
         SEDConfig.lockPort(opts.port)
         SEDConfig.printPortStatus()
         pass
 
-    elif opts.operation == 'printbandinfo':
+    if opts.operation == 'printbandinfo':
         SEDConfig.printBandInfo(opts.bandno)
         pass
 
-    elif opts.operation == 'printdriveinfo':
+    if opts.operation == 'printdriveinfo':
         SEDConfig.printDriveInfo()
         print('')
         SEDConfig.printPortStatus()
+        
+        SEDConfig.printSecurityInfo()
         pass
 
-    elif opts.operation == 'revertdrive':
+    if opts.operation == 'readdatastore':
+        SEDConfig.readDataStore()
+        pass
+
+    if opts.operation == 'removeband':
+        SEDConfig.removeBand(opts.bandno)
+        pass
+
+    if opts.operation == 'revertdrive':
         timeToWait = 0 #JRM FIX back to 15
         while timeToWait > 0:
             print('')
@@ -768,29 +1090,26 @@ def main(arguments):
         SEDConfig.revertDrive()
         pass
 
-    elif opts.operation == 'rotatekeys':
+    if opts.operation == 'rotatekeys':
         SEDConfig.rotateKeys()
         pass
 
-    elif opts.operation == 'takeownership':
-        if SEDConfig.SED.SSC == "Enterprise":
-            userList = ["SID", "EraseMaster", "BandMaster0", "BandMaster1"]
-        else:
-            userList = ["SID", "Admin1", "User1", "User2"]
-        SEDConfig.takeOwnership(userList)
+    if opts.operation == 'takeownership':
+        SEDConfig.takeOwnership()
         pass
 
-    elif opts.operation == 'unlockband':
+    if opts.operation == 'unlockband':
         SEDConfig.unlockBand(opts.bandno)
         SEDConfig.printBandInfo(opts.bandno)
         pass
 
-    elif opts.operation == 'unlockport':
+    if opts.operation == 'unlockport':
         SEDConfig.unlockPort(opts.port)
         SEDConfig.printPortStatus()
         pass
 
-    else:
+    if opts.operation == 'writedatastore':
+        SEDConfig.writeDataStore()
         pass
 
 # ****************************************************************************

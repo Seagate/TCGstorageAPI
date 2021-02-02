@@ -100,6 +100,9 @@ class unitTests(unittest.TestCase):
         # A mocked value representing the Ciphersuites in bytes
         self.sed.CipherSuite = b'\x00\xaa'
 
+        # A mocked value of the bytearray of the tper_attestation certificate returned from the drive
+        self.sed.cert = bytearray(b'0\x82\x05@0\x82\x03\xa8\xa0\x03\x02\x01\x02\x02\x15\x00\xb79\xbd\x01\x93')
+
         # UID returned from the drive in bytes
         self.sed.uid_bytes = b'0\x82\x04;0\x82\x03#\xa0\x03\x02\x01\x02\x02\x14F+\xe2m+...\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' 
 
@@ -535,6 +538,58 @@ class unitTests(unittest.TestCase):
         
         self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
         self.assertFalse(self.sed.get_tperSign_cert())
+    
+    def test_tper_attestation_cert_success(self):
+
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.cert], {})
+        if self.sed.SSC == 'Enterprise':
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
+        else:
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
+        tper_attestation_cert = self.sed.get_tperAttestation_Cert()
+        rv_bytes = bytearray(rv[0])
+        for i, element in reversed(list(enumerate(rv_bytes))):
+            if element == 0:
+                del rv_bytes[i]
+            else:
+                break
+        assert tper_attestation_cert == bytearray(rv_bytes)
+
+    def test_per_attestation_cert_fail(self):
+        
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
+        self.assertFalse(self.sed.get_tperAttestation_Cert())
+    
+    def test_firmware_attestation_optional_param_success(self):
+
+        assessor_nonce = '23helloseagate'
+        sub_name = 'Seagate'
+        assessor_ID = '42545254'
+
+        if self.sed.SSC == 'Enterprise':
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Enterprise')
+        else:
+            type(self.sedmock).SSC = mock.PropertyMock(return_value='Opalv2')
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
+        firmware_attestation_message = self.sed.firmware_attestation(assessor_nonce,sub_name,assessor_ID)
+        assert firmware_attestation_message == rv
+
+    def test_firmware_attestation_no_param_success(self):
+
+        assessor_nonce = '23helloseagate'
+        sub_name = None
+        assessor_ID = None
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0, [self.sed.uid_bytes], {})
+        firmware_attestation_message = self.sed.firmware_attestation(assessor_nonce,sub_name,assessor_ID)
+        assert firmware_attestation_message == rv
+
+    def test_firmware_attestation_fail(self):
+        
+        assessor_nonce = 'false_val'
+        sub_name = 'false_val'
+        assessor_ID = '425452'
+        self.sedmock.invoke.return_value = status, rv, kwrv = (0x01, None, None)
+        self.assertFalse(self.sed.firmware_attestation(assessor_nonce,sub_name,assessor_ID))
 
     def test_write_access_datastore_table_success(self):
                 

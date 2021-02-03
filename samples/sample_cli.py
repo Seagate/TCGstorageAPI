@@ -192,6 +192,23 @@ class Sedcfg(object):
         THIS IS A SEAGATE PROPRIETARY METHOD AND IT WORKS ONLY WITH SEAGATE DEVICES
 
         The function to enable Firmware Attestation on the drive.
+
+        Input Parameters:
+        Assessor Nonce
+        Root of Trust Reporting ID
+        Assessor ID
+        
+        Output Parameters:
+        Secure Boot Process Device state
+        Signing Authority Database
+        Signing Authority Key Certificate Hash
+        See Signing Authority Key Certificate Hash
+        BFW ITCM Hash
+        BFW IDBA Hash
+        Servo FW Hash
+        CFW Hash
+        SEE FW Hash
+
         '''
         self.logger.debug('Receive Fw attestation cert')
         print()

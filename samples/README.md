@@ -60,7 +60,7 @@ Drive Cert - Indicates if the drive is signed with authentic Seagate FW
 Drive Handle  - The drive handle being used
 TCG Config - Indicates if Enterprise or Opalv2
 FIPS Standard\* - Lists the FIPS standard to which the drive is configured \*only available for FIPS configs
-FIPS Compliant\* - True or False, indicates if the drive is FIPS compliant \*only available for FIPS configs
+FIPS Mode\* - True or False, indicates if the drive is in FIPS mode \*only available for FIPS configs
 WWN - The drive's world wide name
 MSID - The drive's manufacturing secure ID
 MaxLBA - The Max LBA of the drive
@@ -99,18 +99,12 @@ Usage: `python3 sed_cli.py --device=<device> --operation=rotatekeys`
 **configureband**
 `configureband` will configure an LBA band as indicated. It uses additional command line options.
 
-Usage: `python3 sed_cli.py --device=<device> --operation=configureband --bandno=<bandno> --rangestart=<rangestart> --rangelength=<rangelength> --lockonreset`
+Usage: `python3 sed_cli.py --device=<device> --operation=configureband --bandno=<bandno> --rangestart=<rangestart> --rangelength=<rangelength> --lockonreset=<true,false>`
 
 `bandno` - The band number to configure
 `rangestart` - The LBA number to start the band at (optional)
 `rangelength` - The length, in LBAs, to configure the band with (optional)
-`lockonreset` - If used, band will enable lockonreset, if not used, band will disable lockonreset
-
-**addband**
-`addband` will add an additional band, up to 15 are supported.  (`configureband` will also automatically add a band, if it is not currently enabled)
-
-Usage: `python3 sed_cli.py --device=<device> --operation=addband --bandno=<bandno>`
-`bandno` - The band number to add
+`lockonreset` - Set lockonreset to TRUE or FALSE
 
 **lockband**
 `lockband` will lock the indicated LBA band.
@@ -133,10 +127,10 @@ Usage: `python3 sed_cli.py --device=<device> --operation=eraseband --bandno=<ban
 **configureport**
 `configureport` will configure a port as indicated.
 
-Usage: `python3 sed_cli.py --device=<device> --operation=configureport --port=<port> --lockonreset`
+Usage: `python3 sed_cli.py --device=<device> --operation=configureport --port=<port> --lockonreset=<true,false>`
 
 `port` - The port to configure, options are "UDS" and "FWDownload"
-`lockonreset` - If used, port will enable lockonreset, if not used, port will disable lockonreset
+`lockonreset` - Set lockonreset to TRUE or FALSE
 
 **lockport**
 `lockport` will lock the indicated LBA port.
@@ -151,7 +145,7 @@ Usage: `python3 sed_cli.py --device=<device> --operation=unlockport --port=<port
 `port` - The port to unlock
 
 **enablefipsmode**
-`enablefipsmode` will enable FIPS compliance, by enabling locking on all bands, disabling FW downloads, disabling MakerSim authority, and requiring minimum PIN lengths
+`enablefipsmode` will enable FIPS mode, by enabling locking on all bands, disabling FW downloads, disabling MakerSim authority, and requiring minimum PIN lengths
 
 Usage: `python3 sed_cli.py --device=<device> --operation=enablefipsmode`
 
@@ -175,4 +169,4 @@ Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain
 `readdatastore` will read the SED DataStore, and either print it, or write it to file
 
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
-`dataou` - (Optional) The file to write the data to
+`dataout` - (Optional) The file to write the data to

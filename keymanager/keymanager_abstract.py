@@ -29,14 +29,6 @@ class KeyManager(ABC):
     def __init__(self):
         self.value = value
         super().__init__()
-    
-    @abstractmethod
-    def storePasswords(self, wwn, cred_table):
-        pass
-
-    @abstractmethod
-    def getPasswords(self, wwn):
-        pass
 
     @abstractmethod
     def deletePasswords(self, wwn):

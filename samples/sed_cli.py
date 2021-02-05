@@ -19,6 +19,16 @@ from keymanager import keymanager_json
 def auto_int(x):
     return int(x, 0)
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
 
@@ -37,7 +47,7 @@ def parse_args():
     parser.add_argument('--keymanager', default='vault', choices=('json', 'vault'),
                         help='The keymanager to use')
 
-    parser.add_argument('--lockonreset', action='store_true', default=False,
+    parser.add_argument('--lockonreset', type=str2bool,
                         help='Enable/Disable lock on reset')
 
     parser.add_argument('--logfile', default='sedcfg.log',
@@ -63,7 +73,6 @@ def parse_args():
 
     parser.add_argument('--operation', default='printdriveinfo', choices=(
         'addband',
-        'bandtest',
         'configureband',
         'configureport',
         'disabletls',
@@ -192,7 +201,7 @@ class cSEDConfig(object):
         print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():
             print('FIPS Standard  = {}'.format(self.SED.fipsCompliance()['standard']))
-            print('FIPS Compliant = {}'.format(self.SED.fipsApprovedMode))
+            print('FIPS Mode      = {}'.format(self.SED.fipsApprovedMode))
         print('WWN            = {:X}'.format(self.SED.wwn))
         print('MSID           = {}'.format(self.SED.mSID))
         print('MaxLBA         = 0x{:X}'.format(self.SED.maxLba))
@@ -504,6 +513,9 @@ class cSEDConfig(object):
             return self.configureBands(bandNumber, lock_state=lock_state)
 
         elif self.SED.SSC == 'Opalv2':
+            if bandNumber == 0:
+                print('Opalv2 does not support Global Range')
+                return True
             user = 'User{}'.format(bandNumber)
             if self.SED.setRange(
                 user,
@@ -635,7 +647,7 @@ class cSEDConfig(object):
             return failureStatus
 
         elif self.SED.SSC == 'Opalv2':
-            bandOwner = 'Band{}'.format(bandNumber)
+            bandOwner = 'User{}'.format(bandNumber)
             if bandOwner not in self.keyManager.getBandNames(self.wwn):
                 print('{} is not currently enabled'.format(bandOwner))
                 failureStatus = True
@@ -688,6 +700,10 @@ class cSEDConfig(object):
             user = 'Admin1'
             auth = ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1'))
 
+            if bandNumber == 0:
+                print('Opalv2 does not support Global Range')
+                return True
+
         info, rc = self.SED.getRange(bandNumber, user, auth)
         print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, info.RangeStart))
         print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, info.RangeStart + info.RangeLength))
@@ -719,7 +735,7 @@ class cSEDConfig(object):
                     PortLocked=lock_state,
                     LockOnReset=lock_on_reset_state,
                     authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))):
-                        print('Sucessfully {} {}'.format(('unlocked','locked')[lock_state], port.Name))
+                        print('Sucessfully modified {} Port'.format(port.Name))
                         return True
 
     #********************************************************************************
@@ -774,7 +790,7 @@ class cSEDConfig(object):
 
     #********************************************************************************
     ##        name: enableFIPS
-    #  description: Enable FIPS compliance by performing the following steps
+    #  description: Enable FIPS Mode by performing the following steps
     #               1) Disable Makers Authority
     #               2) Disable Firmware download
     #               3) Enable locking on all bands
@@ -783,6 +799,10 @@ class cSEDConfig(object):
     def enableFIPS(self):
         if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
             print('Take ownership of drive before enabling FIPS')
+            return False
+
+        if not self.SED.fipsCompliance():
+            print('Drive does not support FIPS')
             return False
 
         # Disable Makers Authority
@@ -1012,11 +1032,6 @@ class cSEDConfig(object):
             print('Drive Cert     = Non-Seagate Device')
             return False
 
-    #********************************************************************************
-    def bandTest(self):
-        print(self.SED.fipsCompliance())
-        pass
-
 #***********************************************************************************************************************
 # tperSign
 #***********************************************************************************************************************
@@ -1029,10 +1044,6 @@ def main(arguments):
     # 'Switch' statement on operation
     if opts.operation == 'addband':
         SEDConfig.addBand(opts.bandno)
-        pass
-
-    if opts.operation == 'bandtest':
-        SEDConfig.bandTest()
         pass
 
     if opts.operation == 'configureband':

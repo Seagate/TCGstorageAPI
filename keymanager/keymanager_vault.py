@@ -44,9 +44,53 @@ class keymanager_vault(KeyManager):
         self.root_token = config_table['root_token']
         self.header = {'X-Vault-Token': '{}'.format(self.root_token)}
 
-    def storePasswords(self, wwn, cred_table):
+    def deletePasswords(self, wwn):
         failureStatus = False
-        url = self.server + self.container + '/' + wwn
+        url = self.server + self.container + '/' + wwn + '?list=true'
+        response = requests.get(url, headers=self.header)
+        try:
+            all_list = json.loads(response.text)['data']['keys']
+        except KeyError:
+            all_list = list()
+        for item in all_list:
+            url = self.server + self.container + '/' + wwn + '/' + item
+            response = requests.delete(url, headers=self.header)
+            if not response.ok:
+                print("Unexpected {} error".format(response.status_code))
+                print(response.text)
+                failureStatus = True
+        return failureStatus
+
+    def getBandNames(self, wwn):
+        bandList = list()
+        url = self.server + self.container + '/' + wwn + '?list=true'
+        response = requests.get(url, headers=self.header)
+        try:
+            all_list = json.loads(response.text)['data']['keys']
+        except KeyError:
+            all_list = list()
+        for keyName in all_list:
+            if 'User' in keyName:
+                bandList.append(keyName)
+            if 'BandMaster' in keyName:
+                bandList.append(keyName)
+        return bandList
+
+    def getKey(self, wwn, key):
+        secret = ''
+        url = self.server + self.container + '/' + wwn + '/' + key
+        response = requests.get(url, headers=self.header)
+        if not response.ok:
+            print("Unexpected {} error".format(response.status_code))
+            print(response.text)
+        else:
+            secret = json.loads(response.text)['data']['value']
+        return secret
+
+    def setKey(self, wwn, key, value):
+        failureStatus = False
+        url = self.server + self.container + '/' + wwn + '/' + key
+        cred_table = {'value': value}
         response = requests.post(url, headers=self.header, data=cred_table)
         if not response.ok:
             print("Error {} on POST request to {}".format(response.status_code, url))
@@ -54,60 +98,14 @@ class keymanager_vault(KeyManager):
             failureStatus = True
         return failureStatus
 
-    def getPasswords(self, wwn):
-        secret = ''
-        url = self.server + self.container + '/' + wwn
-        response = requests.get(url, headers=self.header)
-        if not response.ok:
-            print("Unexpected {} error".format(response.status_code))
-            print(response.text)
-        else:
-            secret = json.loads(response.text)['data']
-        return secret
-
-    def deletePasswords(self, wwn):
+    def deleteKey(self, wwn, key):
         failureStatus = False
-        url = self.server + self.container + '/' + wwn
+        url = self.server + self.container + '/' + wwn + '/' + key
         response = requests.delete(url, headers=self.header)
         if not response.ok:
             print("Unexpected {} error".format(response.status_code))
             print(response.text)
             failureStatus = True
-        return failureStatus
-
-    def getBandNames(self, wwn):
-        bandList = list()
-        for keyName in list(self.getPasswords(wwn).keys()):
-            if 'User' in keyName:
-                bandList.append(keyName)
-            if 'BandMaster' in keyName:
-                bandList.append(keyName)
-        return bandList
-
-
-    def getKey(self, wwn, key):
-        try:
-            value = self.getPasswords(wwn)[key]
-        except KeyError:
-            print("Unable to retrieve value for {}".format(key))
-            value = ''
-        return value
-
-    def setKey(self, wwn, key, value):
-        failureStatus = False
-        if wwn in self.getWWNs():
-            cred_table = self.getPasswords(wwn)
-            cred_table[key] = value
-        else:
-            cred_table = {key: value}
-        failureStatus = self.storePasswords(wwn, cred_table)
-        return failureStatus
-
-    def deleteKey(self, wwn, key):
-        failureStatus = False
-        cred_table = self.getPasswords(wwn)
-        cred_table.pop(key, None)
-        failureStatus = self.storePasswords(wwn, cred_table)
         return failureStatus
 
     def getWWNs(self):

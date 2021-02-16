@@ -786,7 +786,8 @@ class cSEDConfig(object):
         jsonFilename = '{}.json'.format(self.wwn)
         with open(jsonFilename) as index:
             cred_table = json.load(index)
-        self.keyManager.storePasswords(self.wwn, cred_table)
+            for item in cred_table.keys():
+                self.keyManager.setKey(self.wwn, item, cred_table[item])
 
     #********************************************************************************
     ##        name: enableFIPS

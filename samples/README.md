@@ -90,11 +90,17 @@ This method will **DELETE** all user data.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=revertdrive`
 
-**rotatekeys**
-`rotatekeys` will generate a new set of random passwords for each credential, 
+**rotateadminsp**
+`rotateadminsp` will generate a new set of random passwords for the AdminSP, 
 replacing the current credentials on the drive.  Credentials will be updated in the KeyManager.
 
-Usage: `python3 sed_cli.py --device=<device> --operation=rotatekeys`
+Usage: `python3 sed_cli.py --device=<device> --operation=rotateadminsp`
+
+**rotatelockingsp**
+`rotatelockingsp` will generate a new set of random passwords for the LockingSP and each band, 
+replacing the current credentials on the drive.  Credentials will be updated in the KeyManager.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=rotatelockingsp`
 
 **configureband**
 `configureband` will configure an LBA band as indicated. It uses additional command line options.
@@ -170,3 +176,33 @@ Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain
 
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
 `dataout` - (Optional) The file to write the data to
+
+## Policies
+Actions
+- Enroll
+- Lock (done automatically via lock-on-reset)
+- Unlock
+- Disable
+- Decommission
+- Move drive (key rotations)
+- Enable/Check FIPS
+- Firmware update under FIPS
+
+Roles
+### Security Officer
+Can access AdminSP and LockingSP
+
+Enabling/Disabling data-at-rest functionality and life cycle management of keys
+- Enroll
+- Disable
+- Enable FIPS
+
+### System Administrator
+Can only access Locking SP
+
+Drive Replacement and Drive Decommissioning
+- Unlock
+- Decommission
+- Move drive
+- Check FIPS
+- Firmware update under FIPS

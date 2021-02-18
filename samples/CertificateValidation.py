@@ -97,7 +97,8 @@ class VerifyIdentity(object):
         except crypto.Error:
             self.logger.debug("Failed to verify signature of the drive")
             return False
-        except:
+        except Exception as e:
+            self.logger.debug(e)
             self.logger.debug("Failed to perform signature validation")
             return False
 

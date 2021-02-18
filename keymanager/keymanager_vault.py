@@ -32,7 +32,7 @@ class keymanager_vault(KeyManager):
                 config_table = json.load(json_file)
 
         except FileNotFoundError:
-            config_table = { 'server': '', 'container': '', 'root_token': ''}
+            config_table = { 'server': '', 'token': ''}
             with open(configfile, 'w+') as json_file:
                 json_file.write(json.dumps(config_table))
             print('Vault configuration file not found at {}'.format(configfile))
@@ -40,25 +40,39 @@ class keymanager_vault(KeyManager):
             sys.exit(1)
 
         self.server = config_table['server'] + 'v1/'
-        self.container = config_table['container']
-        self.root_token = config_table['root_token']
-        self.header = {'X-Vault-Token': '{}'.format(self.root_token)}
+        self.container = 'SeagateSecure'
+        self.token = config_table['token']
+        self.header = {'X-Vault-Token': '{}'.format(self.token)}
+
+    def hasPermission(self, key):
+        hasPermission = False
+        url = self.server + 'sys/capabilities'
+        data = {'token': self.token, 'path': 'SeagateSecure/+/{}'.format(key)}
+        response = requests.put(url, data=data, headers=self.header)
+        if response.ok:
+            if json.loads(response.text)['capabilities'] != ['deny']:
+                hasPermission = True
+        return hasPermission
 
     def deletePasswords(self, wwn):
         failureStatus = False
-        url = self.server + self.container + '/' + wwn + '?list=true'
-        response = requests.get(url, headers=self.header)
-        try:
-            all_list = json.loads(response.text)['data']['keys']
-        except KeyError:
-            all_list = list()
-        for item in all_list:
-            url = self.server + self.container + '/' + wwn + '/' + item
-            response = requests.delete(url, headers=self.header)
-            if not response.ok:
-                print("Unexpected {} error".format(response.status_code))
-                print(response.text)
-                failureStatus = True
+        if not self.hasPermission('SID'):
+            print('Provided token does not have permissions for deletePasswords')
+            failureStatus = True
+        else:
+            url = self.server + self.container + '/' + wwn + '?list=true'
+            response = requests.get(url, headers=self.header)
+            try:
+                all_list = json.loads(response.text)['data']['keys']
+            except KeyError:
+                all_list = list()
+            for item in all_list:
+                url = self.server + self.container + '/' + wwn + '/' + item
+                response = requests.delete(url, headers=self.header)
+                if not response.ok:
+                    print("Unexpected {} error".format(response.status_code))
+                    print(response.text)
+                    failureStatus = True
         return failureStatus
 
     def getBandNames(self, wwn):
@@ -78,34 +92,46 @@ class keymanager_vault(KeyManager):
 
     def getKey(self, wwn, key):
         secret = ''
-        url = self.server + self.container + '/' + wwn + '/' + key
-        response = requests.get(url, headers=self.header)
-        if not response.ok:
-            print("Unexpected {} error".format(response.status_code))
-            print(response.text)
+        if not self.hasPermission(key):
+            print('Provided token does not have permissions for {}'.format(key))
+            failureStatus = True
         else:
-            secret = json.loads(response.text)['data']['value']
+            url = self.server + self.container + '/' + wwn + '/' + key
+            response = requests.get(url, headers=self.header)
+            if not response.ok:
+                print("Unexpected {} error".format(response.status_code))
+                print(response.text)
+            else:
+                secret = json.loads(response.text)['data']['value']
         return secret
 
     def setKey(self, wwn, key, value):
         failureStatus = False
-        url = self.server + self.container + '/' + wwn + '/' + key
-        cred_table = {'value': value}
-        response = requests.post(url, headers=self.header, data=cred_table)
-        if not response.ok:
-            print("Error {} on POST request to {}".format(response.status_code, url))
-            print(response.text)
+        if not self.hasPermission(key):
+            print('Provided token does not have permissions for {}'.format(key))
             failureStatus = True
+        else:
+            url = self.server + self.container + '/' + wwn + '/' + key
+            cred_table = {'value': value}
+            response = requests.post(url, headers=self.header, data=cred_table)
+            if not response.ok:
+                print("Error {} on POST request to {}".format(response.status_code, url))
+                print(response.text)
+                failureStatus = True
         return failureStatus
 
     def deleteKey(self, wwn, key):
         failureStatus = False
-        url = self.server + self.container + '/' + wwn + '/' + key
-        response = requests.delete(url, headers=self.header)
-        if not response.ok:
-            print("Unexpected {} error".format(response.status_code))
-            print(response.text)
+        if not self.hasPermission(key):
+            print('Provided token does not have permissions for {}'.format(key))
             failureStatus = True
+        else:
+            url = self.server + self.container + '/' + wwn + '/' + key
+            response = requests.delete(url, headers=self.header)
+            if not response.ok:
+                print("Unexpected {} error".format(response.status_code))
+                print(response.text)
+                failureStatus = True
         return failureStatus
 
     def getWWNs(self):

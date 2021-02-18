@@ -87,7 +87,8 @@ def parse_args():
         'readdatastore',
         'removeband',
         'revertdrive',
-        'rotatekeys',
+        'rotateadminsp',
+        'rotatelockingsp',
         'takeownership',
         'unlockband',
         'unlockport',
@@ -136,23 +137,6 @@ class cSEDConfig(object):
             self.keyManager = keymanager_json.keymanager_json()
         else:
             print('Unknown KeyManager Type!')
-            sys.exit(1)
-
-        # Test the KeyManager to ensure read/write access
-        randomName = str(self.keyManager.generateRandomValue())
-        randomKey = self.keyManager.generateRandomValue()
-        randomValue = self.keyManager.generateRandomValue()
-
-        if self.keyManager.setKey(randomName, randomKey, randomValue):
-            print('Unable to interface with keymanager - exiting script')
-            sys.exit(1)
-
-        if self.keyManager.getKey(randomName, randomKey) != randomValue:
-            print('Unable to interface with keymanager - exiting script')
-            sys.exit(1)
-
-        if self.keyManager.deletePasswords(randomName):
-            print('Unable to interface with keymanager - exiting script')
             sys.exit(1)
 
         ## Initialize the SED object
@@ -310,12 +294,47 @@ class cSEDConfig(object):
         return failureStatus
 
     #********************************************************************************
+    ##        name: rotateAdminSP
+    #  description: Retrieves the password of each user from the KeyManager,
+    #               changes the password of each user on the drive,
+    #               saves the updated passwords to the KeyManager
+    #********************************************************************************
+    def rotateAdminSP(self, giveUpOwnership = False):
+        failureStatus = False
+
+        # Create correct verb for message
+        if giveUpOwnership:
+            verb1 = 'Gave Up'
+            verb2 = 'Give Up'
+        else:
+            verb1 = 'Updated'
+            verb2 = 'Update'
+
+        if not self.keyManager.getKey( self.wwn, 'SID' ):
+            print('Unable to access AdminSP - rotateAdminSP Failed')
+        else:
+            # Rotate AdminSP
+            if giveUpOwnership:
+                newKey = self.initial_cred
+            else:
+                newKey = self.keyManager.generateRandomValue()
+            self.SED.changePIN(self.AdminSP, newKey, (None, self.keyManager.getKey(self.wwn, self.AdminSP)))
+            if self.SED.checkPIN(self.AdminSP, newKey):
+                print('{} AdminSP ({})'.format(verb1, self.AdminSP))
+                self.keyManager.setKey(self.wwn, self.AdminSP, newKey)
+            else:
+                print('{} AdminSP ({})'.format(verb2, self.AdminSP))
+                failureStatus = True
+
+        return failureStatus
+
+    #********************************************************************************
     ##        name: rotateKeys
     #  description: Retrieves the password of each user from the KeyManager,
     #               changes the password of each user on the drive,
     #               saves the updated passwords to the KeyManager
     #********************************************************************************
-    def rotateKeys(self, giveUpOwnership = False):
+    def rotateLockingSP(self, giveUpOwnership = False):
 
         # Create correct verb for message
         if giveUpOwnership:
@@ -383,19 +402,6 @@ class cSEDConfig(object):
                 print('Failed to revert LockingSP ({})'.format(self.LockingSP))
                 failureStatus = True
 
-        # Rotate AdminSP
-        if giveUpOwnership:
-            newKey = self.initial_cred
-        else:
-            newKey = self.keyManager.generateRandomValue()
-        self.SED.changePIN(self.AdminSP, newKey, (None, self.keyManager.getKey(self.wwn, self.AdminSP)))
-        if self.SED.checkPIN(self.AdminSP, newKey):
-            print('{} AdminSP ({})'.format(verb1, self.AdminSP))
-            self.keyManager.setKey(self.wwn, self.AdminSP, newKey)
-        else:
-            print('{} AdminSP ({})'.format(verb2, self.AdminSP))
-            failureStatus = True
-
     #********************************************************************************
     #  description: Gives up ownership of a drive by resetting credentials to default
     #               Note - this method RETAINS USER DATA
@@ -403,16 +409,19 @@ class cSEDConfig(object):
     def giveUpOwnership(self):
         failureStatus = False
 
-        if not self.rotateKeys(giveUpOwnership=True):
-            # Unlock Ports
-            self.configurePort('UDS', False, False)
-            self.configurePort('FWDownload', False, False)
-            if self.SED.SSC == 'Opalv2':
-                self.configurePort('ActivationIEEE1667', False, False)
-            self.keyManager.deletePasswords(self.wwn)
+        if not self.keyManager.getKey( self.wwn, 'SID' ):
+            print('Unable to access AdminSP - giveUpOwnership Failed')
         else:
-            print('Failed to give up ownership')
-            failureStatus = True
+            if not self.rotateLockingSP(giveUpOwnership=True) and not self.rotateAdminSP(giveUpOwnership=True):
+                # Unlock Ports
+                self.configurePort('UDS', False, False)
+                self.configurePort('FWDownload', False, False)
+                if self.SED.SSC == 'Opalv2':
+                    self.configurePort('ActivationIEEE1667', False, False)
+                self.keyManager.deletePasswords(self.wwn)
+            else:
+                print('Failed to give up ownership')
+                failureStatus = True
 
         return failureStatus
 
@@ -724,19 +733,23 @@ class cSEDConfig(object):
     #    lock_on_reset_state - If true, enable lock-on-reset. If false, disable lock-on-reset
     #********************************************************************************
     def configurePort(self, portname, lock_state=True, lock_on_reset_state=True):
-        if self.SED.SSC == 'Enterprise' and portname == 'ActivationIEEE1667':
-            print('ActivationIEEE1667 Port is not available on Enterprise')
+        if not self.keyManager.getKey( self.wwn, 'SID' ):
+            print('Unable to access AdminSP - configurePort Failed')
             return False
-        for uid in self.SED.ports.keys():
-            port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
-            if port is not None and hasattr(port, 'Name') and port.Name == portname:
-                if self.SED.setPort(
-                    uid,
-                    PortLocked=lock_state,
-                    LockOnReset=lock_on_reset_state,
-                    authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))):
-                        print('Sucessfully modified {} Port'.format(port.Name))
-                        return True
+        else:
+            if self.SED.SSC == 'Enterprise' and portname == 'ActivationIEEE1667':
+                print('ActivationIEEE1667 Port is not available on Enterprise')
+                return False
+            for uid in self.SED.ports.keys():
+                port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
+                if port is not None and hasattr(port, 'Name') and port.Name == portname:
+                    if self.SED.setPort(
+                        uid,
+                        PortLocked=lock_state,
+                        LockOnReset=lock_on_reset_state,
+                        authAs=('SID', self.keyManager.getKey(self.wwn, 'SID'))):
+                            print('Sucessfully modified {} Port'.format(port.Name))
+                            return True
 
     #********************************************************************************
     ##        name: lockPort
@@ -768,6 +781,9 @@ class cSEDConfig(object):
             if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
                 port = self.SED.getPort(uid, authAs=('SID', bytes(self.SED.mSID, encoding='utf8')))
             else:
+                if not self.keyManager.getKey( self.wwn, 'SID' ):
+                    print('Unable to access AdminSP - printPortStatus Failed')
+                    return False
                 port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
             if port is not None and hasattr(port, 'Name'):
                 print('{}{}{}{}{}'.format(
@@ -804,6 +820,10 @@ class cSEDConfig(object):
 
         if not self.SED.fipsCompliance():
             print('Drive does not support FIPS')
+            return False
+
+        if not self.keyManager.getKey( self.wwn, 'SID' ):
+            print('Unable to access AdminSP - enableFIPS Failed')
             return False
 
         # Disable Makers Authority
@@ -872,6 +892,10 @@ class cSEDConfig(object):
 
         if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
             print('Take ownership of drive before modifying TLS state')
+            return False
+
+        if not self.keyManager.getKey( self.wwn, 'SID' ):
+            print('Unable to access AdminSP - enableFIPS Failed')
             return False
 
         authAs = [
@@ -1030,7 +1054,7 @@ class cSEDConfig(object):
             print('Drive Cert     = Authentic Seagate Device')
             return True
         else:
-            print('Drive Cert     = Non-Seagate Device')
+            print('Drive Cert     = Unable to Authenticate')
             return False
 
 #***********************************************************************************************************************
@@ -1129,8 +1153,12 @@ def main(arguments):
         SEDConfig.revertDrive()
         pass
 
-    if opts.operation == 'rotatekeys':
-        SEDConfig.rotateKeys()
+    if opts.operation == 'rotateadminsp':
+        SEDConfig.rotateAdminSP()
+        pass
+
+    if opts.operation == 'rotatelockingsp':
+        SEDConfig.rotateLockingSP()
         pass
 
     if opts.operation == 'takeownership':

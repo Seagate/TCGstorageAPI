@@ -79,3 +79,4 @@ build/
 dist/
 *.log
 .mockbuild*
+vaultcfg.json

@@ -1,18 +1,18 @@
-# Read system health check
+# Security Officer
+
+# Allow user to check its own capabilities
 path "sys/capabilities"
 {
     capabilities = ["update"]
 }
 
-# Read system health check
+# Allow use of Vault's Random Number Generator
 path "sys/tools/*"
 {
   capabilities = ["update"]
 }
 
-# Enable and manage the key/value secrets engine at `secret/` path
-
-# List, create, update, and delete key/value secrets
+# Can access AdminSP and LockingSP
 path "SeagateSecure/*"
 {
   capabilities = ["create", "read", "update", "delete", "list"]

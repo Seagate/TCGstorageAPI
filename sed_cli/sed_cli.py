@@ -11,7 +11,7 @@ import uuid
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 import TCGstorageAPI.tcgSupport as tcgSupport
-import CertificateValidation as verifyIdentity
+import TCGstorageAPI.CertificateValidation as verifyIdentity
 from TCGstorageAPI.tcgapi import Sed as SED
 from keymanager import keymanager_vault
 from keymanager import keymanager_json

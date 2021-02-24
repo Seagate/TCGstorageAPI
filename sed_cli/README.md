@@ -177,19 +177,42 @@ Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
 `dataout` - (Optional) The file to write the data to
 
-## Policies
-Actions
-- Enroll
-- Lock (done automatically via lock-on-reset)
-- Unlock
-- Disable
-- Decommission
-- Move drive (key rotations)
-- Enable/Check FIPS
-- Firmware update under FIPS
+## Hashicorp Vault Configuration Instructions
+This guide assumes that the user already has a production instance of Hashicorp already setup and running.
 
-Roles
-### Security Officer
+1. Create the KV Secrets Engine
+    - Start at the main GUI page
+    - Click "Enable new engine"
+    - Select "KV", click "Next"
+    - Change Path to "SeagateSecure"
+    - Change Version to "1"
+    - Click "Enable Engine"
+
+2. Upload/Create the Security Officer and System Administrator policies
+    - Start at the main GUI page
+    - Click "Policies"
+    - Click "Create ACL policy"
+    - Fill name with "security-officer-policy", fill policy with contents of security-officer-policy.hcl
+    - Click "Create policy"
+    - Repeat, but this time with the system-admin-policy
+
+3. Add appropriate policy to each required user.
+    - Start at the main GUI page
+    - Click "Access"
+    - Click the authentication method you have chosen to use, i.e. userpass
+    - Create or Edit the target user
+    - Click the "Tokens" drop down button
+    - Under the "Generated Token's Policies" field, add either "security-officer-policy" or the "system-admin-policy", as desired.
+    - If needed, click "Generated Token's Period" and enter a desired lease period.
+    - Click "Save"
+
+4. Each user requests their own token
+    - Start at the main GUI page
+    - Login with the desired user
+    - Click the profile image drop down menu, and select "copy token" - Use this token in the vaultcfg.json file
+
+### Role Details
+#### Security Officer
 Can access AdminSP and LockingSP
 
 Enabling/Disabling data-at-rest functionality and life cycle management of keys
@@ -197,7 +220,7 @@ Enabling/Disabling data-at-rest functionality and life cycle management of keys
 - Disable
 - Enable FIPS
 
-### System Administrator
+#### System Administrator
 Can only access Locking SP
 
 Drive Replacement and Drive Decommissioning

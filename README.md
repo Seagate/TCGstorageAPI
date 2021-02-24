@@ -256,7 +256,7 @@ Example: sudo docker run -it --privileged tcgstorageapi-centos /bin/bash
 
 ### sed_cli
 The sed_cli script (located in sed_cli/sed_cli.py) provides a python based, easy to use command line interface (CLI) for end users.
-It supports Enterprise SSC and Opalv2 SSC configurations; see see https://trustedcomputinggroup.org/
+It supports Enterprise SSC and Opalv2 SSC configurations; see https://trustedcomputinggroup.org/
 
 The CLI is fully functional, but it is not guaranteed to work in all cases.
 

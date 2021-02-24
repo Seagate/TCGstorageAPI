@@ -3,7 +3,7 @@
 **Copyright (c) 2021 Seagate Technology LLC and/or its Affiliates, All Rights Reserved**
 
 The sed_cli script provides a python based, easy to use command line interface (CLI) for end users.
-It supports Enterprise SSC and Opalv2 SSC configurations; see see https://trustedcomputinggroup.org/
+It supports Enterprise SSC and Opalv2 SSC configurations; see https://trustedcomputinggroup.org/
 
 The CLI is fully functional, but it is not guaranteed to work in all cases.
 

@@ -254,16 +254,16 @@ The docker container needs to be run in the privileged mode since you are access
 
 Example: sudo docker run -it --privileged tcgstorageapi-centos /bin/bash
 
-### Example
-Look in the samples directory and run the script sample_cli.py.
+### sed_cli
+The sed_cli script (located in sed_cli/sed_cli.py) provides a python based, easy to use command line interface (CLI) for end users.
+It supports Enterprise SSC and Opalv2 SSC configurations; see see https://trustedcomputinggroup.org/
 
-WARNING: the credentials for the Admin and Users are hardcoded in the example and should be changed!
+The CLI is fully functional, but it is not guaranteed to work in all cases.
 
-The API can support key managers.
+The script must have low level access to the drives, this requires modifying the drive handle permissions,
+or running as Administrator/root 
 
-The example currently works with 2 bands (TCG Ranges).
-
-The example script must be run as Administrator/root.
+A full README on this script can be found at sed_cli/README.md
 
 ## How to contribute
 

@@ -1,17 +1,17 @@
-# Example Script for TCG Storage API
+# Easy to use cli for TCG Storage API
 
 **Copyright (c) 2021 Seagate Technology LLC and/or its Affiliates, All Rights Reserved**
 
-The sample script creates a sample CLI that implements commands to configure a SED and shows how
-to use the underlying TCGstorageAPI. The Trusted Computing Group (TCG) Storage Application Notes
-for Enterprise SSC and Opal SSC were used as a reference; see https://trustedcomputinggroup.org/
+The sed_cli script provides an easy to use command line interface (CLI) for end users.
+It supports Enterprise SSC and Opalv2 SSC configurations; see see https://trustedcomputinggroup.org/
 
 The CLI is fully functional, but it is not guaranteed to work in all cases.
 
-The script must have low level access to the drives, this requires modifying the drive handle permissions, or running as Administrator/root 
+The script must have low level access to the drives, this requires modifying the drive handle permissions,
+or running as Administrator/root 
 
 ## To interact with the drive
-In order to interact with the drive, the user must pass in the drive handle, this is how the OS talks to the drive.
+In order to interact with the drive, the user must pass in the drive handle, this is how the OS communicates with the drive.
 They must also pass in an operation indicating how they want to interact with the drive.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=<operation>`
@@ -35,7 +35,7 @@ Using a Hashicorp Vault Server, the script will store/retrieve credentials secur
 The script, will create a separate entry for each drive, indexed by World Wide Name.
 
 Vault Server Setup:
-A Vault Server can be setup to the user's liking, however a Key/Value secrets vault needs to be created.
+See the bottom of this README for instructions on setting up Hashicorp Vault for use with sed_cli
 
 Configuration file:
 The first time the `sed_cli.py` script is run, it will look for a `vaultcfg.json` file.  If it does not exist,
@@ -178,7 +178,7 @@ Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataou
 `dataout` - (Optional) The file to write the data to
 
 ## Hashicorp Vault Configuration Instructions
-This guide assumes that the user already has a production instance of Hashicorp already setup and running.
+This guide assumes that the user already has an instance of Hashicorp already setup and running.
 
 1. Create the KV Secrets Engine
     - Start at the main GUI page

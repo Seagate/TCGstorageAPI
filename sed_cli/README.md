@@ -1,8 +1,8 @@
-# Easy to use cli for TCG Storage API
+# sed_cli - Easy to use cli for TCG Storage API
 
 **Copyright (c) 2021 Seagate Technology LLC and/or its Affiliates, All Rights Reserved**
 
-The sed_cli script provides an easy to use command line interface (CLI) for end users.
+The sed_cli script provides a python based, easy to use command line interface (CLI) for end users.
 It supports Enterprise SSC and Opalv2 SSC configurations; see see https://trustedcomputinggroup.org/
 
 The CLI is fully functional, but it is not guaranteed to work in all cases.
@@ -38,8 +38,9 @@ Vault Server Setup:
 See the bottom of this README for instructions on setting up Hashicorp Vault for use with sed_cli
 
 Configuration file:
-The first time the `sed_cli.py` script is run, it will look for a `vaultcfg.json` file.  If it does not exist,
-the script will create a blank configuration file.  The user will need to fill out relevant information here.
+The first time the `sed_cli.py` script is run, it will look for a `vaultcfg.json` file.  
+If it does not exist,the script will create a blank configuration file.  
+The user will need to fill add the server path/url and an authentication token.
 
 The vault keymanager is the default method, if `--keymanager=` is not used, the script will invoke this method.
 
@@ -72,110 +73,110 @@ Port - Name of the Port
 Status - Locked or Unlocked
 LockOnReset - Enabled or Disabled
 
-**takeownership**
+#### **takeownership**
 `takeownership` will generate a new set of random passwords for each credential, 
 replacing the default credentials on the drive.  Credentials will be updated in the KeyManager.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=takeownership`
 
-**giveupownership**
+#### **giveupownership**
 `giveupownership` will revert the passwords to their manufacturing default values.
 This method will **PRESERVE** all user data.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=giveupownership`
 
-**revertdrive**
+#### **revertdrive**
 `revertdrive` will revert the drive to its factory state.
 This method will **DELETE** all user data.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=revertdrive`
 
-**rotateadminsp**
+#### **rotateadminsp**
 `rotateadminsp` will generate a new set of random passwords for the AdminSP, 
 replacing the current credentials on the drive.  Credentials will be updated in the KeyManager.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=rotateadminsp`
 
-**rotatelockingsp**
+#### **rotatelockingsp**
 `rotatelockingsp` will generate a new set of random passwords for the LockingSP and each band, 
 replacing the current credentials on the drive.  Credentials will be updated in the KeyManager.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=rotatelockingsp`
 
-**configureband**
+#### **configureband**
 `configureband` will configure an LBA band as indicated. It uses additional command line options.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=configureband --bandno=<bandno> --rangestart=<rangestart> --rangelength=<rangelength> --lockonreset=<true,false>`
 
-`bandno` - The band number to configure
-`rangestart` - The LBA number to start the band at (optional)
-`rangelength` - The length, in LBAs, to configure the band with (optional)
-`lockonreset` - Set lockonreset to TRUE or FALSE
+- `bandno` - The band number to configure
+- `rangestart` - The LBA number to start the band at (optional)
+- `rangelength` - The length, in LBAs, to configure the band with (optional)
+- `lockonreset` - Set lockonreset to TRUE or FALSE
 
-**lockband**
+#### **lockband**
 `lockband` will lock the indicated LBA band.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=lockband --bandno=<bandno>`
-`bandno` - The band number to configure
+- `bandno` - The band number to configure
 
-**unlockband**
+#### **unlockband**
 `unlockband` will unlock the indicated LBA band.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=unlockband --bandno=<bandno>`
-`bandno` - The band number to configure
+- `bandno` - The band number to configure
 
-**eraseband**
+#### **eraseband**
 `eraseband` will erase the indicated LBA band. This will **DELETE** user data on that band.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=eraseband --bandno=<bandno>`
-`bandno` - The band number to configure
+- `bandno` - The band number to configure
 
-**configureport**
+#### **configureport**
 `configureport` will configure a port as indicated.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=configureport --port=<port> --lockonreset=<true,false>`
 
-`port` - The port to configure, options are "UDS" and "FWDownload"
-`lockonreset` - Set lockonreset to TRUE or FALSE
+- `port` - The port to configure, options are "UDS" and "FWDownload"
+- `lockonreset` - Set lockonreset to TRUE or FALSE
 
-**lockport**
+#### **lockport**
 `lockport` will lock the indicated LBA port.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=lockport --port=<port>`
-`port` - The port number to lock
+- `port` - The port number to lock
 
-**unlockport**
+#### **unlockport**
 `unlockport` will unlock the indicated LBA port.
 
 Usage: `python3 sed_cli.py --device=<device> --operation=unlockport --port=<port>`
-`port` - The port to unlock
+- `port` - The port to unlock
 
-**enablefipsmode**
+#### **enablefipsmode**
 `enablefipsmode` will enable FIPS mode, by enabling locking on all bands, disabling FW downloads, disabling MakerSim authority, and requiring minimum PIN lengths
 
 Usage: `python3 sed_cli.py --device=<device> --operation=enablefipsmode`
 
-**enabletls**
+#### **enabletls**
 `enabletls` will enable TLS communication, note this is not supported on Windows
 
 Usage: `python3 sed_cli.py --device=<device> --operation=enabletls`
 
-**disabletls**
+#### **disabletls**
 `disabletls` will disable TLS communication
 
 Usage: `python3 sed_cli.py --device=<device> --operation=disabletls`
 
-**writedatastore**
+#### **writedatastore**
 `writedatastore` will take a file, up to 768 bytes in size, and write it to the internal SED DataStore
 
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain=<filetoread>`
-`datain` - The file to read the data from
+- `datain` - The file to read the data from
 
-**readdatastore**
+#### **readdatastore**
 `readdatastore` will read the SED DataStore, and either print it, or write it to file
 
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
-`dataout` - (Optional) The file to write the data to
+- `dataout` - (Optional) The file to write the data to
 
 ## Hashicorp Vault Configuration Instructions
 This guide assumes that the user already has an instance of Hashicorp already setup and running.

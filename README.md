@@ -11,7 +11,10 @@ BINARIES and SOURCE CODE files of the TCGstorageAPI open source project are made
 
 It uses the openSeaChest project, its repository is maintained at https://github.com/Seagate/openSeaChest.
 
-TCGstorageAPI implements the TCG Storage Enterprise SSC and Opal SSC protocols for configuring SEDs. It supports a number of operations, such as taking ownership of the drive, setting authentication credentials, configuring bands (TCG Ranges), locking and unlocking of bands, etc. The API should be used in combination with Key Manager to securely store drive authentication credentials.  
+TCGstorageAPI implements the TCG Storage Enterprise SSC and Opal SSC protocols for configuring SEDs. It supports a number of operations, such as taking ownership of the drive, setting authentication credentials, configuring bands (TCG Ranges), locking and unlocking of bands, etc.
+
+The sed_cli script (located in sed_cli/sed_cli.py) implements the TCGstorageAPI to provide a python based, 
+easy to use command line interface (CLI) for end users. A full README on this script can be found at sed_cli/README.md
 
 ### Required libraries
 
@@ -253,17 +256,6 @@ Example: sudo docker build -f docker/CENTOS/7/Dockerfile -t tcgstorageapi-centos
 The docker container needs to be run in the privileged mode since you are accessing the device. To run the docker container, run the following command "sudo docker run -it --privileged docker-image-name /bin/bash". A new bash shell should appear indicating the running container, you can run the sedcfg.py script from the bash.
 
 Example: sudo docker run -it --privileged tcgstorageapi-centos /bin/bash
-
-### sed_cli
-The sed_cli script (located in sed_cli/sed_cli.py) provides a python based, easy to use command line interface (CLI) for end users.
-It supports Enterprise SSC and Opalv2 SSC configurations; see https://trustedcomputinggroup.org/
-
-The CLI is fully functional, but it is not guaranteed to work in all cases.
-
-The script must have low level access to the drives, this requires modifying the drive handle permissions,
-or running as Administrator/root 
-
-A full README on this script can be found at sed_cli/README.md
 
 ## How to contribute
 

@@ -6,12 +6,13 @@ import os
 import sys
 import time
 import uuid
+import filecmp
 
 ## Add TCGstorageAPI path
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 import TCGstorageAPI.tcgSupport as tcgSupport
-import TCGstorageAPI.CertificateValidation as verifyIdentity
+import CertificateValidation as verifyIdentity
 from TCGstorageAPI.tcgapi import Sed as SED
 from keymanager import keymanager_vault
 from keymanager import keymanager_json
@@ -93,11 +94,12 @@ def parse_args():
         'unlockband',
         'unlockport',
         'writedatastore',
+        'unittest',
     ))
 
     opts = parser.parse_args()
 
-    if opts.operation == 'revertdrive' and not opts.psid:
+    if opts.operation in ['revertdrive', 'unittest'] and not opts.psid:
         parser.error('--psid argument is mandatory for the revertdrive operation')
 
     if opts.operation == 'writedatastore' and not opts.datain:
@@ -531,9 +533,15 @@ class cSEDConfig(object):
                 int(bandNumber),
                 (user, self.keyManager.getKey(self.wwn, user)),
                 ReadLocked=lock_state, WriteLocked=lock_state):
-                print('Locked Band{}'.format(bandNumber))
+                if lock_state:
+                    print('Locked Band{}'.format(bandNumber))
+                else:
+                    print('Unlocked Band{}'.format(bandNumber))
             else:
-                print('Error Unlocking Band{}'.format(bandNumber))
+                if lock_state:
+                    print('Error Locking Band{}'.format(bandNumber))
+                else:
+                    print('Error Unlocking Band{}'.format(bandNumber))
 
     #********************************************************************************
     ##        name: lockBand
@@ -554,8 +562,7 @@ class cSEDConfig(object):
     #********************************************************************************
     ##        name: eraseBand
     #  description: Allows the user to erase the indicated band
-    #   parameters:
-    #               bandNumber - The band to erase
+    #   parameters: bandNumber - The band to erase
     #********************************************************************************
     def eraseBand(self, bandNumber):
         if self.SED.SSC == 'Enterprise':
@@ -593,6 +600,10 @@ class cSEDConfig(object):
                 print('Error - Band{} was not erased'.format(bandNumber))
                 return False
 
+    #********************************************************************************
+    ##        name: addBand
+    #  description: Allows the user to add the indicated band
+    #   parameters: bandNumber - The band to add
     #********************************************************************************
     def addBand(self, bandNumber):
         failureStatus = False
@@ -647,6 +658,10 @@ class cSEDConfig(object):
 
         return failureStatus
 
+    #********************************************************************************
+    ##        name: removeBand
+    #  description: Allows the user to remove the indicated band
+    #   parameters: bandNumber - The band to remove
     #********************************************************************************
     def removeBand(self, bandNumber):
         failureStatus = False
@@ -1057,6 +1072,93 @@ class cSEDConfig(object):
             print('Drive Cert     = Unable to Authenticate')
             return False
 
+    def unittest(self):
+        timeToWait = 15
+        while timeToWait > 0:
+            print('')
+            print('UNIT TEST will commence in {} seconds'.format(timeToWait))
+            print('    ALL Data on {} will be DESTROYED'.format(self.opts.device, self.opts.bandno))
+            print('        Press control-C to abort')
+            time.sleep(5)
+            timeToWait -= 5
+
+        # Vars
+        bandno = 1
+        rangestart = 0x1000
+        rangelength = 0x1000
+        port = 'UDS'
+
+        print("\n### Revert Drive")
+        self.revertDrive()
+
+        print("\n### Print Drive Info")
+        self.printDriveInfo()
+
+        print("\n### Take Ownership")
+        self.takeOwnership()
+
+        print("\n### Give Up Ownership")
+        self.giveUpOwnership()
+
+        print("\n### Retake Ownership")
+        self.takeOwnership()
+
+        print("\n### Rotate Keys")
+        self.rotateLockingSP()
+        self.rotateAdminSP()
+        
+        print("\n### Configure Band")
+        self.configureBands(bandno, rangestart, rangelength, lock_state=False, lock_on_reset_state=True)
+
+        print("\n### Lock/Unlock Band")
+        self.lockBand(bandno)
+        self.printBandInfo(bandno)
+        self.unlockBand(bandno)
+        self.printBandInfo(bandno)
+
+        print("\n### Erase Band")
+        self.eraseBand(bandno)
+
+        print("\n### Configure Port")
+        self.configurePort(port, lock_state=False, lock_on_reset_state=True)
+        self.printPortStatus()
+
+        print("\n### Lock/Unlock Port")
+        self.lockPort(port)
+        self.printPortStatus()
+        self.unlockPort(port)
+        self.printPortStatus()
+
+        print("\n### Enable FIPS")
+        self.enableFIPS()
+
+        print("\n### Write Datastore")
+        test_file = 'datastoretest.txt'
+        test_read = 'datastoreread.txt'
+        with open(test_file, 'w') as index:
+            index.write(self.keyManager.generateRandomValue())
+        self.opts.datain = test_file
+        self.writeDataStore()
+
+        self.opts.dataout = ''
+        self.readDataStore()
+
+        self.opts.dataout = test_read
+        self.readDataStore()
+        if filecmp.cmp(test_file, test_read):
+            print('Files are equal')
+        else:
+            print('Files are NOT equal')
+
+        if os.path.exists(test_file):
+            os.remove(test_file)
+        if os.path.exists(test_read):
+            os.remove(test_read)
+
+        print("\n### Enable/Disable TLS")
+        self.enableTLS()
+        self.disableTLS()
+
 #***********************************************************************************************************************
 # tperSign
 #***********************************************************************************************************************
@@ -1077,9 +1179,9 @@ def main(arguments):
         pass
 
     if opts.operation == 'configureport':
-            SEDConfig.configurePort(opts.port, lock_state=False, lock_on_reset_state=opts.lockonreset)
-            SEDConfig.printPortStatus()
-            pass
+        SEDConfig.configurePort(opts.port, lock_state=False, lock_on_reset_state=opts.lockonreset)
+        SEDConfig.printPortStatus()
+        pass
 
     if opts.operation == 'disabletls':
         SEDConfig.disableTLS()
@@ -1177,6 +1279,10 @@ def main(arguments):
 
     if opts.operation == 'writedatastore':
         SEDConfig.writeDataStore()
+        pass
+
+    if opts.operation == 'unittest':
+        SEDConfig.unittest()
         pass
 
 # ****************************************************************************

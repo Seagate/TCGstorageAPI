@@ -792,14 +792,7 @@ class cSEDConfig(object):
     def printPortStatus(self):
         print('Port                Status       LockOnReset')
         for uid in self.SED.ports.keys():
-            # If default cred, use them, else look up via keymanager
-            if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
-                port = self.SED.getPort(uid, authAs=('SID', bytes(self.SED.mSID, encoding='utf8')))
-            else:
-                if not self.keyManager.getKey( self.wwn, 'SID' ):
-                    print('Unable to access AdminSP - printPortStatus Failed')
-                    return False
-                port = self.SED.getPort(uid, authAs=('SID', self.keyManager.getKey(self.wwn, 'SID')))
+            port = self.SED.getPort(uid, authAs=('Anybody', None))
             if port is not None and hasattr(port, 'Name'):
                 print('{}{}{}{}{}'.format(
                     port.Name,                                                # Port Name

@@ -3,7 +3,7 @@
 
 ## API for TCG Storage operations on SAS and SATA Self-Encrypting Drives
 
-##### Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
+##### Copyright (c) 2020-2021 Seagate Technology LLC and/or its Affiliates, All Rights Reserved
 
 ![](https://github.com/Seagate/TCGstorageAPI/workflows/TCGstorageAPI%20build/badge.svg)
 

@@ -92,9 +92,9 @@ def parse_args():
                         help='The filename of the vault config file')
 
     parser.add_argument('--operation', default='printdriveinfo', choices=(
-        'addband',
         'configureband',
         'configureport',
+        'debug',
         'disabletls',
         'enablefipsmode',
         'enabletls',
@@ -105,7 +105,6 @@ def parse_args():
         'printbandinfo',
         'printdriveinfo',
         'readdatastore',
-        'removeband',
         'revertdrive',
         'rotateadminsp',
         'rotatelockingsp',
@@ -200,8 +199,8 @@ class cSEDConfig(object):
     #********************************************************************************
     def printDriveInfo(self):
         
-        if not self.opts.skipcert:
-            self.validateSeagateDrive()
+        #if not self.opts.skipcert:
+        #    self.validateSeagateDrive()
         print('Drive Handle   = {}'.format(self.deviceHandle))
         print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():
@@ -295,9 +294,10 @@ class cSEDConfig(object):
                 auth = self.LockingSP
                 authAs = (None, self.keyManager.getKey(self.wwn, self.LockingSP))
                 obj = 'C_PIN_{}'.format(bandOwner)
+
                 # If Opalv2, bands needs to be activated first
                 if self.SED.enableAuthority(self.LockingSP, True, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
-                    print('Enabled {}'.format(bandOwner))
+                    self.logger.debug('Enabled {}'.format(bandOwner))
                 else:
                     print('Failed to enable {}'.format(bandOwner))
                     failureStatus = True
@@ -311,6 +311,10 @@ class cSEDConfig(object):
                 self.keyManager.setKey(self.wwn, bandOwner, newKey)
             else:
                 print('Failed to take ownership of {}'.format(bandOwner))
+
+        # Enable and Take Ownership of the remaining bands
+        for i in range( 2, 16 ):
+            failureStatus |= self.enableBand(i)
 
         return failureStatus
 
@@ -393,14 +397,6 @@ class cSEDConfig(object):
                 print('Failed to {} {}'.format(verb2, bandOwner))
                 failureStatus = True
 
-            # If giving up ownership on Opalv2, bands needs to be disabled
-            if self.SED.SSC == 'Opalv2' and giveUpOwnership:
-                if self.SED.enableAuthority(self.LockingSP, False, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
-                    print('Disabled {}'.format(bandOwner))
-                else:
-                    print('Failed to disable {}'.format(bandOwner))
-                    failureStatus = True
-
         # Rotate LockingSP
         if giveUpOwnership:
             newKey = self.initial_cred
@@ -433,16 +429,19 @@ class cSEDConfig(object):
         if not self.keyManager.getKey( self.wwn, 'SID' ):
             print('Unable to access AdminSP - giveUpOwnership Failed')
         else:
-            if not self.rotateLockingSP(giveUpOwnership=True) and not self.rotateAdminSP(giveUpOwnership=True):
+            if self.rotateLockingSP(giveUpOwnership=True):
+                print('Failed to give up LockingSP')
+                failureStatus = True
+            elif self.rotateAdminSP(giveUpOwnership=True):
+                print('Failed to give up AdminSP')
+                failureStatus = True
+            else:
                 # Unlock Ports
                 self.configurePort('UDS', False, False)
                 self.configurePort('FWDownload', False, False)
                 if self.SED.SSC == 'Opalv2':
                     self.configurePort('ActivationIEEE1667', False, False)
                 self.keyManager.deletePasswords(self.wwn)
-            else:
-                print('Failed to give up ownership')
-                failureStatus = True
 
         return failureStatus
 
@@ -481,12 +480,9 @@ class cSEDConfig(object):
         ## Configure Band
         if self.SED.SSC == 'Enterprise':
             auth = 'BandMaster{}'.format(bandNumber)
-            if bandNumber > 1:
-                print('Enterprise does not yet support bands 2-15')
-                return True
-            elif auth not in self.keyManager.getBandNames(self.wwn):
+            if auth not in self.keyManager.getBandNames(self.wwn):
                 # Add band, if it hasn't been enabled yet
-                self.addBand(bandNumber)
+                self.enableBand(bandNumber)
         else:
             auth = 'Admin1'
             if bandNumber == 0:
@@ -494,7 +490,7 @@ class cSEDConfig(object):
                 return True
             elif 'User{}'.format(bandNumber) not in self.keyManager.getBandNames(self.wwn):
                 # Add band, if it hasn't been enabled yet
-                self.addBand(bandNumber)
+                self.enableBand(bandNumber)
 
         if bandNumber == '0' and rangeStart != None:
             print('Can\'t change range for global locking range')
@@ -592,8 +588,8 @@ class cSEDConfig(object):
                 # In Enterprise, band erasure will revert ownership, so delete the band from the key list
                 self.keyManager.deleteKey(self.wwn, user)
 
-                # Then readd
-                self.addBand(bandNumber)
+                # Then reenable
+                self.enableBand(bandNumber)
                 return True
             else:
                 print('Error - Band{} was not erased'.format(bandNumber))
@@ -620,11 +616,11 @@ class cSEDConfig(object):
                 return False
 
     #********************************************************************************
-    ##        name: addBand
+    ##        name: enableBand
     #  description: Allows the user to add the indicated band
     #   parameters: bandNumber - The band to add
     #********************************************************************************
-    def addBand(self, bandNumber):
+    def enableBand(self, bandNumber):
         failureStatus = False
 
         if self.SED.checkPIN('SID', bytes(self.SED.mSID, encoding='utf8')) == True:
@@ -632,17 +628,15 @@ class cSEDConfig(object):
             return True
 
         if self.SED.SSC == 'Enterprise':
-            if bandNumber > 1:
-                print('Bands 2-15 are not yet supported')
-                failureStatus = True
-                return failureStatus
-
             newKey = self.keyManager.generateRandomValue()
 
             # Setup variables for each config
             bandOwner = 'BandMaster{}'.format(bandNumber)
             authAs = (None, self.initial_cred)
             obj = None
+
+            # Enable The Band
+            self.SED.enableAuthority(bandOwner, True, obj="C_PIN_{}".format(bandOwner), authAs=("EraseMaster", self.keyManager.getKey(self.wwn, "EraseMaster")))
 
             # Take ownership
             self.SED.changePIN(bandOwner, newKey, authAs, obj)
@@ -661,7 +655,7 @@ class cSEDConfig(object):
 
             # Band needs to be activated first
             if self.SED.enableAuthority(self.LockingSP, True, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
-                print('Enabled {}'.format(bandOwner))
+                self.logger.debug('Enabled {}'.format(bandOwner))
             else:
                 print('Failed to enable {}'.format(bandOwner))
                 failureStatus = True
@@ -676,48 +670,6 @@ class cSEDConfig(object):
                 print('Failed to take ownership of {}'.format(bandOwner))
 
         return failureStatus
-
-    #********************************************************************************
-    ##        name: removeBand
-    #  description: Allows the user to remove the indicated band
-    #   parameters: bandNumber - The band to remove
-    #********************************************************************************
-    def removeBand(self, bandNumber):
-        failureStatus = False
-        if self.SED.SSC == 'Enterprise':
-            print('Band Removal is not yet supported on Enerprise Configs')
-            failureStatus = True
-            return failureStatus
-
-        elif self.SED.SSC == 'Opalv2':
-            bandOwner = 'User{}'.format(bandNumber)
-            if bandOwner not in self.keyManager.getBandNames(self.wwn):
-                print('{} is not currently enabled'.format(bandOwner))
-                failureStatus = True
-                return failureStatus
-            else:
-                self.keyManager.deleteKey(bandOwner)
-
-            # Setup variables for each config
-            auth = self.LockingSP
-            authAs = (None, self.keyManager.getKey(self.wwn, self.LockingSP))
-            obj = 'C_PIN_{}'.format(bandOwner)
-            
-            # Take ownership
-            newKey = self.initial_cred
-            self.SED.changePIN(auth, newKey, authAs, obj)
-            if self.SED.checkPIN(bandOwner, newKey):
-                print('Gave up {}'.format(bandOwner))
-                self.keyManager.setKey(self.wwn, bandOwner, newKey)
-            else:
-                print('Failed to give up {}'.format(bandOwner))
-
-            # Band needs to be disabled
-            if self.SED.enableAuthority(self.LockingSP, False, bandOwner, authAs=(self.LockingSP, self.keyManager.getKey(self.wwn, self.LockingSP))):
-                print('Disabled {}'.format(bandOwner))
-            else:
-                print('Failed to disable {}'.format(bandOwner))
-                failureStatus = True
 
     #********************************************************************************
     ##        name: printBandInfo
@@ -1095,7 +1047,7 @@ class cSEDConfig(object):
             timeToWait -= 5
 
         # Vars
-        bandno = 1
+        bandno = 7
         rangestart = 0x1000
         rangelength = 0x1000
         port = 'UDS'
@@ -1180,11 +1132,6 @@ def main(arguments):
     # Create the SEDConfig class
     SEDConfig = cSEDConfig(opts.device, opts.keymanager, opts)
 
-    # 'Switch' statement on operation
-    if opts.operation == 'addband':
-        SEDConfig.addBand(opts.bandno)
-        pass
-
     if opts.operation == 'configureband':
         if not SEDConfig.configureBands(opts.bandno, opts.rangestart, opts.rangelength, lock_state=False, lock_on_reset_state=opts.lockonreset):
             SEDConfig.printBandInfo(opts.bandno)
@@ -1251,13 +1198,9 @@ def main(arguments):
         SEDConfig.readDataStore()
         pass
 
-    if opts.operation == 'removeband':
-        SEDConfig.removeBand(opts.bandno)
-        pass
-
     if opts.operation == 'revertdrive':
-        timeToWait = 15
-        while timeToWait > 0:
+        timeToWait = 0
+        while timeToWait > 15:
             print('')
             print('REVERT SP will commence in {} seconds'.format(timeToWait))
             print('    ALL Data on {} will be DESTROYED'.format(opts.device, opts.bandno))

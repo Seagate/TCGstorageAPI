@@ -312,10 +312,6 @@ class cSEDConfig(object):
             else:
                 print('Failed to take ownership of {}'.format(bandOwner))
 
-        # Enable and Take Ownership of the remaining bands
-        for i in range( 2, 16 ):
-            failureStatus |= self.enableBand(i)
-
         return failureStatus
 
     #********************************************************************************
@@ -439,8 +435,6 @@ class cSEDConfig(object):
                 # Unlock Ports
                 self.configurePort('UDS', False, False)
                 self.configurePort('FWDownload', False, False)
-                if self.SED.SSC == 'Opalv2':
-                    self.configurePort('ActivationIEEE1667', False, False)
                 self.keyManager.deletePasswords(self.wwn)
 
         return failureStatus
@@ -492,8 +486,8 @@ class cSEDConfig(object):
                 # Add band, if it hasn't been enabled yet
                 self.enableBand(bandNumber)
 
-        if bandNumber == '0' and rangeStart != None:
-            print('Can\'t change range for global locking range')
+        if bandNumber == 0 and (rangeStart or rangeLength):
+            print('Changing range for Band 0 (global locking range) is not allowed.')
             return True
 
         configureStatus = self.SED.setRange(
@@ -700,9 +694,10 @@ class cSEDConfig(object):
                 return True
 
         info, rc = self.SED.getRange(bandNumber, user, auth)
-        print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, info.RangeStart))
-        print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, info.RangeStart + info.RangeLength))
-        print('Band{} RangeLength      = 0x{:x}'.format(bandNumber, info.RangeLength))
+        if bandNumber != 0:
+            print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, info.RangeStart))
+            print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, info.RangeStart + info.RangeLength))
+            print('Band{} RangeLength      = 0x{:x}'.format(bandNumber, info.RangeLength))
         print('Band{} ReadLocked       = {}'.format(bandNumber, ('unlocked','locked')[info.ReadLocked]))
         print('Band{} WriteLocked      = {}'.format(bandNumber, ('unlocked','locked')[info.WriteLocked]))
         print('Band{} LockOnReset      = {}'.format(bandNumber, info.LockOnReset))
@@ -745,7 +740,20 @@ class cSEDConfig(object):
     #             lock_state - If true, lock the port. If false, unlock the port
     #********************************************************************************
     def lockPort(self, portname):
-        return self.configurePort(portname, True)
+        for uid in self.SED.ports.keys():
+            port = self.SED.getPort(uid, authAs=('Anybody', None))
+            if port is not None and hasattr(port, 'Name'):
+                if port.Name == portname:
+                    if port.PortLocked:
+                        print('{} is already locked'.format(portname))
+                        return True
+        
+        if self.configurePort(portname, True):
+            print('Locked {}'.format(portname))
+            return True
+        else:
+            print('Error Locking {}'.format(portname))
+            return False
 
     #********************************************************************************
     ##        name: unlockPort
@@ -754,7 +762,20 @@ class cSEDConfig(object):
     #               portname - The port to unlock ('FWDownload' or 'UDS')
     #********************************************************************************
     def unlockPort(self, portname):
-        return self.configurePort(portname, False)
+        for uid in self.SED.ports.keys():
+            port = self.SED.getPort(uid, authAs=('Anybody', None))
+            if port is not None and hasattr(port, 'Name'):
+                if port.Name == portname:
+                    if not port.PortLocked:
+                        print('{} is already unlocked'.format(portname))
+                        return True
+        
+        if self.configurePort(portname, False):
+            print('Unlocked {}'.format(portname))
+            return True
+        else:
+            print('Error Unlocking {}'.format(portname))
+            return False
 
     #********************************************************************************
     ##        name: printPortStatus
@@ -815,10 +836,7 @@ class cSEDConfig(object):
 
         # Disable Firmware Download
         if not self.lockPort('FWDownload'):
-            print('Failed to disable FWDownload')
             return False
-        else:
-            print('Disabled FWDownload')
 
         if self.SED.SSC == 'Enterprise':
             # Check that all enabled bands are locked
@@ -826,9 +844,9 @@ class cSEDConfig(object):
                 lockingInfo, status = self.SED.getRange(
                     int(bandNumber[10:]), 'EraseMaster', authAs=('EraseMaster', self.keyManager.getKey(self.wwn, 'EraseMaster')))
                 if lockingInfo.ReadLockEnabled and lockingInfo.WriteLockEnabled:
-                    print('Band{} Locking Enabled'.format(bandNumber))
+                    print('{} Locking Enabled'.format(bandNumber))
                 else:
-                    print('Band{} Locking Disabled - enable before retrying enablefipsmode'.format(bandNumber))
+                    print('{} Locking Disabled - enable before retrying enablefipsmode'.format(bandNumber))
                     return False
 
         elif self.SED.SSC == 'Opalv2':
@@ -1094,6 +1112,9 @@ class cSEDConfig(object):
         self.printPortStatus()
 
         print("\n### Enable FIPS")
+        if self.SED.SSC == 'Enterprise':
+            self.configureBands(0)
+        self.configureBands(1, 0x0, 0x1000)
         self.enableFIPS()
 
         print("\n### Write Datastore")
@@ -1199,7 +1220,7 @@ def main(arguments):
         pass
 
     if opts.operation == 'revertdrive':
-        timeToWait = 0
+        timeToWait = 15
         while timeToWait > 15:
             print('')
             print('REVERT SP will commence in {} seconds'.format(timeToWait))

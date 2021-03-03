@@ -85,9 +85,6 @@ def parse_args():
     parser.add_argument('--rangelength', default=None, type=auto_int,
                         help='The length of the band')
 
-    parser.add_argument('--skipcert', action='store_true', default=False,
-                        help='Skip validation of the drive certificate')
-
     parser.add_argument('--vaultconfig', default='vaultcfg.json',
                         help='The filename of the vault config file')
 
@@ -199,8 +196,6 @@ class cSEDConfig(object):
     #********************************************************************************
     def printDriveInfo(self):
         
-        #if not self.opts.skipcert:
-        #    self.validateSeagateDrive()
         print('Drive Handle   = {}'.format(self.deviceHandle))
         print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():

@@ -89,7 +89,9 @@ Usage: `python3 sed_cli.py --device=<device> --operation=giveupownership`
 `revertdrive` will revert the drive to its factory state.
 This method will **DELETE** all user data.
 
-Usage: `python3 sed_cli.py --device=<device> --operation=revertdrive`
+Usage: `python3 sed_cli.py --device=<device> --operation=revertdrive --psid=<PSID>`
+
+- `psid` - The PSID of the drive
 
 #### **rotateadminsp**
 `rotateadminsp` will generate a new set of random passwords for the AdminSP, 
@@ -177,6 +179,12 @@ Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain
 
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
 - `dataout` - (Optional) The file to write the data to
+
+#### **unittest**
+`unittest` will go through each command, testing its functionality.  This test will **DELETE** all user data.
+
+Usage: `python3 sed_cli.py --device=<device> --operation=unittest --psid=<PSID>`
+- `psid` - The PSID of the drive
 
 ## Hashicorp Vault Configuration Instructions
 This guide assumes that the user already has an instance of Hashicorp already setup and running.

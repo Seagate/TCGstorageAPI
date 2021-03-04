@@ -228,6 +228,7 @@ Enabling/Disabling data-at-rest functionality and life cycle management of keys
 - Enroll
 - Disable
 - Enable FIPS
+- Firmware update under FIPS
 
 #### System Administrator
 Can only access Locking SP
@@ -237,4 +238,3 @@ Drive Replacement and Drive Decommissioning
 - Decommission
 - Move drive
 - Check FIPS
-- Firmware update under FIPS

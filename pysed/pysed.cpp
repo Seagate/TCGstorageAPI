@@ -581,9 +581,13 @@ tuple Sed::invoke(tuple argv, dict kwargs) {
 					parseCredential(credentials))) {
 				self->logger.debug("Failed to authenticate as %s",
 						authName.c_str());
+				try {
 				object self = argv[0];
 				credentials = call_method<object>(self.ptr(),
 						"_failedCredentials", authName, credentials);
+				} catch (error_already_set&) {
+					self->logger.debug("Invalid Authentication");
+				}
 				if (credentials == object())
 					return make_tuple(NOT_AUTHORIZED, credentials, credentials);
 			}

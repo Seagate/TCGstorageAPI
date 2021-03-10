@@ -1026,10 +1026,10 @@ class cSEDConfig(object):
         return self.SED.checkPIN(self.AdminSP, self.initial_cred) != True
 
     #********************************************************************************
-    #         name: validateSeagateDrive
+    #         name: validateSeagateCert
     #  description: Validates that the Drive's certificate was signed by Seagate
     #********************************************************************************
-    def validateSeagateDrive(self):
+    def validateSeagateCert(self):
         if self.SED.fipsCompliance():
             print('Drive Cert     = N/A (FIPS Configuration)')
             return False
@@ -1249,7 +1249,7 @@ def main(arguments):
         pass
 
     if opts.operation == 'validateseagate':
-        SEDConfig.validateSeagateDrive()
+        SEDConfig.validateSeagateCert()
         pass
 
     if opts.operation == 'writedatastore':

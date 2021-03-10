@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------------
 # Do NOT modify or remove this copyright
 #
-# Copyright (c) 2020-2021 Seagate Technology LLC and/or its Affiliates
+# Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 # limitations under the License.
 #
 #****************************************************************************
-# \file CertificateValidation.py
-# \brief Utility file for sed_cli.py
+# \file helper.py
+# \brief Utility file for sample_cli.py
 #        Note: this functionality is not supported on all SEDs
 #
 #-----------------------------------------------------------------------------
@@ -40,9 +40,8 @@ class VerifyIdentity(object):
     cert: Certificate pulled from the device
     """
 
-    def __init__(self, cert, logger):
+    def __init__(self,cert):
         self.drive_cert = cert
-        self.logger = logger
 
     def validate_drive_cert(self):
         '''
@@ -73,13 +72,11 @@ class VerifyIdentity(object):
         verified = self.verify_chain_of_trust(driveCert_PEM, trusted_certs)
 
         if verified:
-            self.logger.debug("Drive Certificate chain verified from drive to root")
-            return True
+            print ("Drive Certificate chain verified from drive to root")
         else:
             raise Exception("ERROR: Issue verifying Certificate chain, do NOT trust")
-            return False
 
-    def validate_signature(self, original_string,signature):
+    def validate_signature(self,original_string,signature):
         '''
 
         The function to validate the digital signature of the drive
@@ -93,15 +90,14 @@ class VerifyIdentity(object):
         x509 = crypto.load_certificate(crypto.FILETYPE_PEM, DER_cert_to_PEM_cert(bytes(self.drive_cert)))
         public_key = x509.get_pubkey()
         try:
-            crypto.verify(x509,signature,original_string,'sha256')
-            self.logger.debug("Drive signature verified successfully")
+            crypto.verify(self.x509,signature,original_string,'sha256')
+            print("Drive signature verified successfully")
             return True
         except crypto.Error:
-            self.logger.debug("Failed to verify signature of the drive")
+            print("Failed to verify signature of the drive")
             return False
-        except Exception as e:
-            self.logger.debug(e)
-            self.logger.debug("Failed to perform signature validation")
+        except:
+            print("Failed to perform signature validation")
             return False
 
     @staticmethod

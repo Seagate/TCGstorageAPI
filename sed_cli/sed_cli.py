@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument('--logfile', default='sedcfg.log',
                         help='The filename of the logfile to write')
 
-    parser.add_argument('--port', choices=('UDS', 'FWDownload', 'ActivationIEEE1667'),
+    parser.add_argument('--port', default='',
                         help='The port to lock or unlock')
 
     parser.add_argument('--psid', default=None,
@@ -95,6 +95,7 @@ def parse_args():
         'disabletls',
         'enablefipsmode',
         'enabletls',
+        'fwattestation',
         'giveupownership',
         'eraseband',
         'lockband',
@@ -1037,13 +1038,66 @@ class cSEDConfig(object):
         deviceCert = self.SED.get_tperSign_cert()
 
         # Validate the drive cert against the Seagate root cert
-        identity = verifyIdentity.VerifyIdentity(deviceCert, self.logger)
-        if identity.validate_drive_cert():
-            print('Drive Cert     = Authentic Seagate Certificate')
+        identity = verifyIdentity.VerifyIdentity(deviceCert)
+        identity.validate_drive_cert()
+
+        # Validate device signature by signing a dummy payload
+        timestamp = str(datetime.datetime.today())
+        signature = self.SED.tperSign(bytes(timestamp, encoding='utf8'))
+
+        # Compare signatures
+        if identity.validate_signature(timestamp, signature):
+            print('Drive Cert     = Authentic Seagate Device')
             return True
         else:
-            print('Drive Cert     = Unable to Authenticate Seagate Certificate')
+            print('Drive Cert     = Unable to Authenticate')
             return False
+
+    #********************************************************************************
+    #         name: fwAttestation
+    #  description: Enables Seagate Proprietary FW Attestation feature
+    #********************************************************************************
+    def fwAttestation(self):
+        print()
+        print("*** THIS IS THE FW ATTEST METHOD. IT IS A SEAGATE PROPRIETARY METHOD AND WORKS ONLY WITH SEAGATE DEVICES ***")
+        print()
+
+        # Retrieve the Tper attestation certificate
+        att_cert = self.SED.get_tperAttestation_Cert()
+        if (len(att_cert)) == 0:
+            print("The drive does not contain an attestation certificate")
+            return
+
+        # Validate the drive attestation certificate against the root certificate
+        identity = verifyIdentity.VerifyIdentity(att_cert)
+        identity.validate_drive_cert()
+
+        # Simulated values for the assessor_nonce, assessor_ID, sub_name
+        (assessor_nonce, sub_name) = ('23helloseagate', identity.CN)
+        assessor_ID = '34254525432Seagate'
+
+        # Receive Firmware attestation message from the drive
+        self.logger.debug('Get FW attestation meassge')
+        ret = self.SED.firmware_attestation(assessor_nonce, sub_name, assessor_ID)
+
+        # Verify the signature with the original string
+        if (ret):
+            return_val = ret[0]
+            (Assessor_Nonce, Measurement, data, signature) = (tcgSupport.convert(return_val[512:528].replace(b'\x00',b'')), return_val[528:1376].hex(), return_val[0:1376], return_val[1376:1760])
+            if (Assessor_Nonce != assessor_nonce):
+                return False
+            if (sub_name and assessor_ID):
+                (Assessor_ID, RTR_ID) = (tcgSupport.convert(return_val[0:256].replace(b'\x00',b'')), tcgSupport.convert(return_val[256:512].replace(b'\x00',b'')))
+                if (Assessor_ID != assessor_ID and RTR_ID != sub_name):
+                    return False
+            
+            # Display the measurement data to customers for verification
+            if identity.validate_signature(data, signature) == True:
+                print('The measurement data fields are displayed below:\n')
+                print('Secure Boot Process Device state={}\nSigning Authority Database={}\nSigning Authority Key Certificate Hash={}\nSee Signing Authority Key Certificate Hash={}\nBFW ITCM Hash={}\nBFW IDBA Hash={}\nServo FW Hash={}\nCFW Hash={}\nSEE FW Hash={}\n'.format(Measurement[3:131],Measurement[131:351],Measurement[351:383],Measurement[383:415],Measurement[415:447],Measurement[447:479],Measurement[479:511],Measurement[511:543],Measurement[543:575]))
+                return True
+
+        return False
 
     #********************************************************************************
     #         name: unittest
@@ -1184,6 +1238,10 @@ def main(arguments):
         print('')
         print('Band Erase has started')
         SEDConfig.eraseBand(opts.bandno)
+        pass
+
+    if opts.operation == 'fwattestation':
+        SEDConfig.fwAttestation()
         pass
 
     if opts.operation == 'giveupownership':

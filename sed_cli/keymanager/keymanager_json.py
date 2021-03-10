@@ -46,7 +46,8 @@ class keymanager_json(KeyManager):
 
     def deletePasswords(self, wwn):
         jsonFilename = '{}.json'.format(wwn)
-        os.remove(jsonFilename)
+        if os.path.isfile(jsonFilename):
+            os.remove(jsonFilename)
 
     def getBandNames(self, wwn):
         jsonFilename = '{}.json'.format(wwn)

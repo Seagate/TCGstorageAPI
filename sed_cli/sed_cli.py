@@ -1018,8 +1018,6 @@ class cSEDConfig(object):
                 print('Write Failed, payload/file may be too large')
                 return True
 
-
-
     #********************************************************************************
     ##        name: isOwned
     #  description: Returns True if drive is Owned, False if not
@@ -1041,10 +1039,10 @@ class cSEDConfig(object):
         # Validate the drive cert against the Seagate root cert
         identity = verifyIdentity.VerifyIdentity(deviceCert, self.logger)
         if identity.validate_drive_cert():
-            print('Drive Cert     = Authentic Seagate Device')
+            print('Drive Cert     = Authentic Seagate Certificate')
             return True
         else:
-            print('Drive Cert     = Unable to Authenticate')
+            print('Drive Cert     = Unable to Authenticate Seagate Certificate')
             return False
 
     #********************************************************************************

@@ -16,8 +16,8 @@
 # limitations under the License.
 #
 #****************************************************************************
-# \file helper.py
-# \brief Utility file for sample_cli.py
+# \file CertificateValidation.py
+# \brief Utility file for sed_cli.py
 #        Note: this functionality is not supported on all SEDs
 #
 #-----------------------------------------------------------------------------

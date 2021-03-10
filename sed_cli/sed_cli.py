@@ -116,7 +116,7 @@ def parse_args():
     opts = parser.parse_args()
 
     if opts.operation in ['revertdrive', 'unittest'] and not opts.psid:
-        parser.error('--psid argument is mandatory for the revertdrive operation')
+        parser.error('--psid argument is mandatory for the revertdrive and unittest operations')
 
     if opts.operation == 'writedatastore' and not opts.datain:
         parser.error('--datain argument is mandatory for the writedatastore operation')

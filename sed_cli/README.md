@@ -180,6 +180,10 @@ Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --datain
 Usage: `python3 sed_cli.py --device=<device> --operation=writedatastore --dataout=<filetowrite>`
 - `dataout` - (Optional) The file to write the data to
 
+#### **validateseagate**
+`validateseagate` will validate the drive's certificate was signed by Seagate
+Usage: `python3 sed_cli.py --device=<device> --operation=validateseagate`
+
 #### **unittest**
 `unittest` will go through each command, testing its functionality.  This test will **DELETE** all user data.
 

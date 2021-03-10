@@ -74,8 +74,10 @@ class VerifyIdentity(object):
 
         if verified:
             self.logger.debug("Drive Certificate chain verified from drive to root")
+            return True
         else:
             raise Exception("ERROR: Issue verifying Certificate chain, do NOT trust")
+            return False
 
     def validate_signature(self, original_string,signature):
         '''

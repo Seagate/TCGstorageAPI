@@ -108,6 +108,7 @@ def parse_args():
         'takeownership',
         'unlockband',
         'unlockport',
+        'validateseagate',
         'writedatastore',
         'unittest',
     ))
@@ -195,7 +196,6 @@ class cSEDConfig(object):
     #              IsLocked: True if any LBA bands are locked, otherwise False
     #********************************************************************************
     def printDriveInfo(self):
-        
         print('Drive Handle   = {}'.format(self.deviceHandle))
         print('TCG Config     = {}'.format(self.SED.SSC))
         if self.SED.fipsCompliance():
@@ -1018,6 +1018,8 @@ class cSEDConfig(object):
                 print('Write Failed, payload/file may be too large')
                 return True
 
+
+
     #********************************************************************************
     ##        name: isOwned
     #  description: Returns True if drive is Owned, False if not
@@ -1025,6 +1027,9 @@ class cSEDConfig(object):
     def isOwned(self):
         return self.SED.checkPIN(self.AdminSP, self.initial_cred) != True
 
+    #********************************************************************************
+    #         name: validateSeagateDrive
+    #  description: Validates that the Drive's certificate was signed by Seagate
     #********************************************************************************
     def validateSeagateDrive(self):
         if self.SED.fipsCompliance():
@@ -1035,20 +1040,17 @@ class cSEDConfig(object):
 
         # Validate the drive cert against the Seagate root cert
         identity = verifyIdentity.VerifyIdentity(deviceCert, self.logger)
-        identity.validate_drive_cert()
-
-        # Validate device signature by signing a dummy payload
-        timestamp = str(datetime.datetime.today())
-        signature = self.SED.tperSign(bytes(timestamp, encoding='utf8'))
-
-        # Compare signatures
-        if identity.validate_signature(timestamp, signature):
+        if identity.validate_drive_cert():
             print('Drive Cert     = Authentic Seagate Device')
             return True
         else:
             print('Drive Cert     = Unable to Authenticate')
             return False
 
+    #********************************************************************************
+    #         name: unittest
+    #  description: Runs a sequence of commands, in order to validate all functionality
+    #********************************************************************************
     def unittest(self):
         timeToWait = 15
         while timeToWait > 0:
@@ -1216,7 +1218,7 @@ def main(arguments):
 
     if opts.operation == 'revertdrive':
         timeToWait = 15
-        while timeToWait > 15:
+        while timeToWait > 0:
             print('')
             print('REVERT SP will commence in {} seconds'.format(timeToWait))
             print('    ALL Data on {} will be DESTROYED'.format(opts.device, opts.bandno))
@@ -1246,6 +1248,10 @@ def main(arguments):
     if opts.operation == 'unlockport':
         SEDConfig.unlockPort(opts.port)
         SEDConfig.printPortStatus()
+        pass
+
+    if opts.operation == 'validateseagate':
+        SEDConfig.validateSeagateDrive()
         pass
 
     if opts.operation == 'writedatastore':

@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import sys
+import textwrap
 import time
 import uuid
 import filecmp
@@ -50,7 +51,13 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def parse_args():
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
+    epilogue = textwrap.dedent('''
+         =======================================================================================================
+         = This CLI is fully functional, but it is not guaranteed to work in all cases.  Use at your own risk. =
+         =======================================================================================================
+         ''')
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, epilog=epilogue)
 
     parser.add_argument('--bandno', default=0, type=int,
                         help='The band to operate on')
@@ -67,7 +74,7 @@ def parse_args():
     parser.add_argument('--keymanager', default='vault', choices=('json', 'vault'),
                         help='The keymanager to use')
 
-    parser.add_argument('--lockonreset', type=str2bool,
+    parser.add_argument('--lockonreset', type=str2bool, choices=('true', 'false'),
                         help='Enable/Disable lock on reset')
 
     parser.add_argument('--logfile', default='sedcfg.log',

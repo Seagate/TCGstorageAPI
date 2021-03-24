@@ -5,7 +5,7 @@
 The sed_cli script provides a python based, easy to use command line interface (CLI) for end users.
 It supports Enterprise SSC and Opalv2 SSC configurations; see https://trustedcomputinggroup.org/
 
-The CLI is fully functional, but it is not guaranteed to work in all cases.
+The CLI is fully functional, but it is not guaranteed to work in all cases.  Use at your own risk.
 
 The script must have low level access to the drives, this requires modifying the drive handle permissions,
 or running as Administrator/root 

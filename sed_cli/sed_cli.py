@@ -74,7 +74,7 @@ def parse_args():
     parser.add_argument('--keymanager', default='vault', choices=('json', 'vault'),
                         help='The keymanager to use')
 
-    parser.add_argument('--lockonreset', type=str2bool, choices=('true', 'false'),
+    parser.add_argument('--lockonreset', type=str2bool,
                         help='Enable/Disable lock on reset')
 
     parser.add_argument('--logfile', default='sedcfg.log',

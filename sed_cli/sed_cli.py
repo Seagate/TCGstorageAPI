@@ -1102,7 +1102,7 @@ class cSEDConfig(object):
         # Verify the signature with the original string
         if (ret):
             return_val = ret[0]
-            (Assessor_Nonce, Measurement, data, signature) = (tcgSupport.convert(return_val[512:528].replace(b'\x00',b'')), return_val[528:1376].hex(), return_val[0:1376], return_val[1376:1760])
+            (Assessor_Nonce, Measurement, data, signature) = (tcgSupport.convert(return_val[512:528].replace(b'\x00',b'')), return_val[544:1376].hex(), return_val[0:1376], return_val[1376:1760])
             if (Assessor_Nonce != assessor_nonce):
                 return False
             if (sub_name and assessor_ID):
@@ -1113,7 +1113,7 @@ class cSEDConfig(object):
             # Display the measurement data to customers for verification
             if identity.validate_signature(data, signature) == True:
                 print('The measurement data fields are displayed below:\n')
-                print('Secure Boot Process Device state={}\nSigning Authority Database={}\nSigning Authority Key Certificate Hash={}\nSee Signing Authority Key Certificate Hash={}\nBFW ITCM Hash={}\nBFW IDBA Hash={}\nServo FW Hash={}\nCFW Hash={}\nSEE FW Hash={}\n'.format(Measurement[3:131],Measurement[131:351],Measurement[351:383],Measurement[383:415],Measurement[415:447],Measurement[447:479],Measurement[479:511],Measurement[511:543],Measurement[543:575]))
+                print('Secure Boot Process Device state={}\nSigning Authority Database={}\nSigning Authority Key Certificate Hash={}\nSee Signing Authority Key Certificate Hash={}\nBFW ITCM Hash={}\nBFW IDBA Hash={}\nServo FW Hash={}\nCFW Hash={}\nSEE FW Hash={}\n'.format(Measurement[8:264],Measurement[264:704],Measurement[704:768],Measurement[768:832],Measurement[832:896],Measurement[896:960],Measurement[960:1024],Measurement[1024:1088],Measurement[1088:1152]))
                 return True
 
         return False

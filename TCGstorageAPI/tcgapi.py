@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 # Do NOT modify or remove this copyright
 #
-# Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates
+# Copyright (c) 2020-2021 Seagate Technology LLC and/or its Affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -584,7 +584,7 @@ class Sed(object):
         '''
         for key, value in list(kwargs.items()):
             if key == 'LockOnReset':
-                value = [0] if kwargs.get('LockOnReset') == str(True) else []
+                value = [0] if kwargs.get('LockOnReset') == True else []
             self.token.update({key:value})
         arg = tcgSupport.tokens(self)
         status, rv, kwrv = self.__pysed.invoke('Band%d' % rangeNo, 'Set', arg,

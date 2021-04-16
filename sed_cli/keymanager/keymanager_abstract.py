@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------------
 # Do NOT modify or remove this copyright
 #
-# Copyright (c) 2020 Seagate Technology LLC and/or its Affiliates
+# Copyright (c) 2020-2021 Seagate Technology LLC and/or its Affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,38 +21,39 @@
 #
 #-----------------------------------------------------------------------------
 
-class KeyManager(object):
-    '''
-    This is a class to store authority and credentials temporarily.
-    '''
-
+from abc import ABC, abstractmethod
+import random
+ 
+class KeyManager(ABC):
+ 
     def __init__(self):
-        '''
-        The function to create a structure for authority and credentials.
-        '''
-        self.credentials = {}
+        self.value = value
+        super().__init__()
 
-    def getKey(self,auth):
-        '''
-        The function to get the credential value for an authority.
+    @abstractmethod
+    def deletePasswords(self, wwn):
+        pass
 
-        Parameters:
-            auth -Authority
-        Returns:
-            cred - credential
-        '''
+    @abstractmethod
+    def getBandNames(self, wwn):
+        pass
 
-        cred = self.credentials[auth]
-        return cred
+    @abstractmethod
+    def setKey(self, wwn, key, value):
+        pass
+    
+    @abstractmethod
+    def getKey(self, wwn, key):
+        pass
 
-    def setKey(self,auth,cred):
-        '''
-        The function to set credential for an authority.
+    @abstractmethod
+    def deleteKey(self, wwn, key):
+        pass
+    
+    @abstractmethod
+    def getWWNs(self):
+        pass
 
-        Parameters:
-            auth - Authority
-            cred - credential
-        '''
-
-        self.credentials[auth]=cred
-        return
+    @abstractmethod
+    def generateRandomValue(self):
+        pass

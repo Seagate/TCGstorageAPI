@@ -457,7 +457,7 @@ void Session::dumpPacket(const char * desc, void * buf, size_t size) {
 	}
 	if (strlen(bytestr)) {
 		// dump whatever remains in the string buffer
-		getLogger().debug("dump[%s][%d]: %s", desc, lastprint, bytestr);
+		getLogger().debug("%s [%d]: %s", desc, lastprint, bytestr);
 	}
 }
 

@@ -450,7 +450,7 @@ void Session::dumpPacket(const char * desc, void * buf, size_t size) {
 		int currlen = strlen(bytestr);
 		sprintf(bytestr + currlen, "0x%02x ", bytes[i]);
 		if (strlen(bytestr) > 76) {
-			getLogger().debug("%s [%d]: %s", desc, i, bytestr);
+			getLogger().debug("%s [%d]: %s", desc, lastprint, bytestr);
 			bzero(bytestr, sizeof(bytestr));
 			lastprint = i + 1;
 		}

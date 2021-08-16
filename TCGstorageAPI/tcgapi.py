@@ -311,10 +311,17 @@ class Sed(object):
     @property
     def _debugPackets(self):
         '''
-        Dump TCG packets in debug log
+        Retrieve flag for dumping TCG packets in debug log.
         '''
 
-        self.__pysed._debugPackets
+        return self.__pysed._debugPackets
+
+    @_debugPackets.setter
+    def _debugPackets(self, value):
+        '''
+        Toggle flag to enable dumping TCG packets in debug log.
+        '''
+        self.__pysed._debugPackets = value
     
     @property
     def fipsApprovedMode(self):

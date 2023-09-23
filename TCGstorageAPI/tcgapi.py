@@ -22,18 +22,19 @@
 #-----------------------------------------------------------------------------
 
 import sys
-import logging
-from . import pysed
 import struct
-from . import pysedSupport
-import warnings
-from .pysedSupport import *
-from . import tcgSupport
-from .tcgSupport import locking_table as locking_table
-from .tcgSupport import portlocking_table as portlocking_table
-from .tcgSupport import c_tls_psk_table as c_tls_psk_table
 import io
 import os
+import re
+import warnings
+
+from . import pysed
+from . import pysedSupport
+from .pysedSupport import baseObjectIds
+from . import tcgSupport
+from .tcgSupport import locking_table
+from .tcgSupport import portlocking_table
+from .tcgSupport import c_tls_psk_table
 
 StatusCode = pysed.StatusCode
 

@@ -449,7 +449,7 @@ void Session::dumpPacket(const char * desc, void * buf, size_t size) {
 
 void PacketHeaders::fill(Drive * const drive, Session * const session,
 		uint32_t dataLength) {
-	memset(this, 0, sizeof(PacketHeaders));
+	*this = {};
 	subPacket.length = dataLength;
 	dataLength += sizeof(SubPacketHeader);
 	if (dataLength % 4)

@@ -242,11 +242,11 @@ const char * Results::namedString(const uint64_t name)
         {
 
             PyObject* v = ob.ptr();
-    
+
             if (PyBytes_Check(v)) {
               //cout << "Object is PyBytes type\n";
               char *pbuf = PyBytes_AsString(v);
-              Py_ssize_t len = PyBytes_Size(v);
+              //Py_ssize_t len = PyBytes_Size(v);
               //cout << "Value is '" << pbuf << "' length " << (long) len << "\n";
               return pbuf;
              }

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - develop
   pull_request:
     branches:
       - master
@@ -12,13 +13,13 @@ jobs:
   build:
     name: TCGstorageAPI_build
     # This job runs on Linux
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Checkout git submodules
-        run: git submodule update --init --recursive 
-      - name: Install dependencies 
+        run: git submodule update --init --recursive
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt install python3
@@ -30,14 +31,14 @@ jobs:
         run: |
           sudo apt-get install python3-setuptools
           pip3 install --no-cache-dir -r requirements.txt
-      - name: Link gmake to make
-        run: sudo ln -s /usr/bin/make /usr/bin/gmake
+      - name: Link libboost_python3 to libboost_python38.so
+        run: sudo ln -s /usr/lib/x86_64-linux-gnu/libboost_python38.so /usr/lib/libboost_python3.so
       - name: Build opensea
         run: python3 setup.py opensea
       - name: Build TCGstorageAPI package
         run: python3 setup.py build
       - name: Run unit tests
         run: |
-          sudo cp -R build/lib.linux-x86_64-3.6/TCGstorageAPI /home/runner/work/TCGstorageAPI/TCGstorageAPI
-          export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.6/site-packages/
+          sudo cp -R build/lib.linux-x86_64-3.8/TCGstorageAPI /home/runner/work/TCGstorageAPI/TCGstorageAPI
+          export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages/
           python3 TCGstorageAPI/tcgapi_test.py

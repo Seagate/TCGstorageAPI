@@ -54,9 +54,9 @@ class BuildOpenSea(Command):
         """Abstract method that is required to be overwritten"""
     def run(self):
         print(" => Building OpenSea Static Libraries ...")
-        subprocess.call(['gmake', '-C', 'opensea-transport/Make/gcc'])
-        subprocess.call(['gmake', '-C', 'opensea-operations/Make/gcc'])
-        subprocess.call(['gmake', '-C', 'opensea-common/Make/gcc'])
+        subprocess.call(['make', '-C', 'opensea-transport/Make/gcc'])
+        subprocess.call(['make', '-C', 'opensea-operations/Make/gcc'])
+        subprocess.call(['make', '-C', 'opensea-common/Make/gcc'])
 
 pysed = Extension('TCGstorageAPI.pysed', [
         'pysed/pysed.cpp',

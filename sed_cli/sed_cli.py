@@ -38,7 +38,10 @@ from keymanager import keymanager_vault
 from keymanager import keymanager_json
 
 def auto_int(x):
-    return int(x, 0)
+    try:
+        return int(x, 0)
+    except TypeError: # x may be just an int
+        return int(x)
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -698,9 +701,9 @@ class cSEDConfig(object):
 
         info, rc = self.SED.getRange(bandNumber, user, auth)
         if bandNumber != 0:
-            print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, info.RangeStart))
-            print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, info.RangeStart + info.RangeLength))
-            print('Band{} RangeLength      = 0x{:x}'.format(bandNumber, info.RangeLength))
+            print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, auto_int(info.RangeStart)))
+            print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, auto_int(info.RangeStart) + auto_int(info.RangeLength)))
+            print('Band{} RangeLength      = 0x{:x}'.format(bandNumber, auto_int(info.RangeLength)))
         print('Band{} ReadLocked       = {}'.format(bandNumber, ('unlocked','locked')[info.ReadLocked]))
         print('Band{} WriteLocked      = {}'.format(bandNumber, ('unlocked','locked')[info.WriteLocked]))
         print('Band{} LockOnReset      = {}'.format(bandNumber, info.LockOnReset))

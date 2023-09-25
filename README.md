@@ -56,23 +56,21 @@ Note that cloning **_recursively_** is **_important_** as it clones all the nece
 
 Start by updating the package index:
 
-`sudo yum update`
+`sudo yum -y update`
 
 Install python3:
 
-`sudo yum install python3`
+`sudo yum -y install python3`
 
 Install gcc and g++:
 
-`sudo yum -y install gcc`
-
-`sudo yum -y install gcc-c++`
+`sudo yum -y install gcc gcc-c++`
 
 Install boost:
 
-`sudo yum install epel-release`
+`sudo yum -y install epel-release`
 
-`sudo yum install boost-python36-devel.x86_64`
+`sudo yum -y install boost-python36-devel`
 
 Install gnutls:
 
@@ -83,13 +81,13 @@ Install python3-extensions:
 `sudo yum -y install python3-devel`
 
 Install rpm build package
- 
- `sudo yum install rpm-build`
+
+ `sudo yum -y install rpm-build`
 
 Change directory to tcgstorageapi and download the package dependencies:
 
  `pip3 install -r requirements.txt`
- 
+
 ##### Ubuntu 18.04
 
 Start by updating package index

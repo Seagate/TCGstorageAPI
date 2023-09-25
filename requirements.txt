@@ -1,4 +1,3 @@
-boost
 cryptography==3.3.2
 passlib==1.7.4
 pycparser==2.20

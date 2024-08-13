@@ -67,7 +67,7 @@ pysed = Extension('TCGstorageAPI.pysed', [
         'pysed/support.cpp',
         'pysed/Tls.cpp',
     ],
-    libraries=['boost_python3', 'gnutls', 'gnutlsxx' ],
+    libraries=['boost_python310', 'gnutls', 'gnutlsxx' ],
     include_dirs = ['pysed','opensea-transport/include','opensea-common/include','opensea-operations/include','opensea-transport/include/vendor','/usr/local/include'],
     extra_objects=['opensea-transport/Make/gcc/lib/libopensea-transport.a','opensea-common/Make/gcc/lib/libopensea-common.a','opensea-operations/Make/gcc/lib/libopensea-operations.a'],
     extra_compile_args=['-O0','-g','-DDISABLE_NVME_PASSTHROUGH']

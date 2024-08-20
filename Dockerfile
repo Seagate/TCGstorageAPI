@@ -40,4 +40,4 @@ RUN apt-get install -y --no-install-recommends python3-all python3-all-dev libgn
 #RUN ln -s /usr/bin/make /usr/bin/gmake
 RUN python3 setup.py opensea
 RUN python3 setup.py build
-#RUN cp -r build/lib.linux-x86_64-3.10/TCGstorageAPI /usr/local/lib/python3.10/site-packages/.
+RUN cp -r build/lib.linux-x86_64-3.10/TCGstorageAPI /usr/local/lib/python3.10/dist-packages/.

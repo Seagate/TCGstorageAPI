@@ -2,8 +2,6 @@ name: TCGstorageAPI build
 
 on:
   push:
-    branches:
-      - master
   pull_request:
     branches:
       - master
@@ -12,7 +10,7 @@ jobs:
   build:
     name: TCGstorageAPI_build
     # This job runs on Linux
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -30,14 +28,12 @@ jobs:
         run: |
           sudo apt-get install python3-setuptools
           pip3 install --no-cache-dir -r requirements.txt
-      - name: Link gmake to make
-        run: sudo ln -s /usr/bin/make /usr/bin/gmake
       - name: Build opensea
         run: python3 setup.py opensea
       - name: Build TCGstorageAPI package
         run: python3 setup.py build
       - name: Run unit tests
         run: |
-          sudo cp -R build/lib.linux-x86_64-3.6/TCGstorageAPI /home/runner/work/TCGstorageAPI/TCGstorageAPI
-          export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.6/site-packages/
+          sudo cp -R build/lib.linux-x86_64-3.10/TCGstorageAPI /home/runner/work/TCGstorageAPI/TCGstorageAPI
+          export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/dist-packages/
           python3 TCGstorageAPI/tcgapi_test.py

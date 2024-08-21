@@ -1,5 +1,5 @@
 boost
-cryptography==3.3.2
+cryptography==42.0.8
 passlib==1.7.4
 pycparser==2.20
-pyopenssl==20.0.1
+pyopenssl==24.2.1

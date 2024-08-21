@@ -16,16 +16,27 @@
 # limitations under the License.
 #
 #****************************************************************************
-FROM centos:7
-USER root
-COPY requirements.txt ./
-RUN yum -y update && \
-yum -y install epel-release && \
-yum -y install python3 boost-python36.x86_64 boost-python36-devel.x86_64 gcc gcc-c++ gnutls-devel rpm-build python3-devel && \
-yum clean all
+FROM ubuntu:22.04 AS tcgstorageapi
+
+RUN apt-get update && apt-get install -y --reinstall ca-certificates
+
+RUN DEBIAN_FRONTEND="noninteractive" apt-get -y install tzdata
+
+WORKDIR /tcgstorageapi
+
+COPY TCGstorageAPI /tcgstorageapi/TCGstorageAPI
+COPY setup.py /tcgstorageapi/setup.py
+COPY opensea-common /tcgstorageapi/opensea-common
+COPY opensea-operations /tcgstorageapi/opensea-operations
+COPY opensea-transport /tcgstorageapi/opensea-transport
+COPY pysed /tcgstorageapi/pysed
+COPY sed_cli /tcgstorageapi/sed_cli
+COPY requirements.txt /tcgstorageapi/requirements.txt
+
+RUN apt update -y && apt-get install -y python3-pip
 RUN pip3 install --no-cache-dir -r requirements.txt
-WORKDIR /usr/src/TCGStorageAPI
-COPY . .
+RUN apt-get install -y --no-install-recommends python3-all python3-all-dev libgnutls28-dev libboost-all-dev  \
+    && rm -rf /var/lib/apt/lists/*
 RUN python3 setup.py opensea
-RUN python3 setup.py bdist_rpm
-RUN yum install -y  dist/TCGstorageAPI-*.x86_64.rpm
+RUN python3 setup.py build
+RUN cp -r build/lib.linux-x86_64-3.10/TCGstorageAPI /usr/local/lib/python3.10/dist-packages/.

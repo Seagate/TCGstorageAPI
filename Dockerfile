@@ -37,7 +37,6 @@ RUN apt update -y && apt-get install -y python3-pip
 RUN pip3 install --no-cache-dir -r requirements.txt
 RUN apt-get install -y --no-install-recommends python3-all python3-all-dev libgnutls28-dev libboost-all-dev  \
     && rm -rf /var/lib/apt/lists/*
-#RUN ln -s /usr/bin/make /usr/bin/gmake
 RUN python3 setup.py opensea
 RUN python3 setup.py build
 RUN cp -r build/lib.linux-x86_64-3.10/TCGstorageAPI /usr/local/lib/python3.10/dist-packages/.

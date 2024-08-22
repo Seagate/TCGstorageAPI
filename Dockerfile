@@ -16,6 +16,7 @@
 # limitations under the License.
 #
 #****************************************************************************
+
 FROM ubuntu:22.04 AS tcgstorageapi
 
 RUN apt-get update && apt-get install -y --reinstall ca-certificates

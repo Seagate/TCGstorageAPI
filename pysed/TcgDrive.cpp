@@ -441,10 +441,24 @@ void Session::dumpPacket(const char * desc, void * buf, size_t size) {
 	if (dumpPackets == false)
 		return;
 
-	LoggerBase & logger = drive->getLogger();
-	std::string dump = drive->getLogger().dump(buf, size).c_str();
-	dump = std::string(desc) + std::string(":") + dump;
-	logger.write(LoggerBase::Debug, dump.c_str());
+	unsigned char *bytes = (unsigned char *)buf;
+	int maxbytes = size * 5 + 1;
+	int lastprint = 0;
+	char bytestr[maxbytes];
+	bzero(bytestr, sizeof(bytestr));
+	for (int i = 0; i < size; i++) {
+		int currlen = strlen(bytestr);
+		sprintf(bytestr + currlen, "0x%02x ", bytes[i]);
+		if (strlen(bytestr) > 76) {
+			getLogger().debug("%s [%d]: %s", desc, lastprint, bytestr);
+			bzero(bytestr, sizeof(bytestr));
+			lastprint = i + 1;
+		}
+	}
+	if (strlen(bytestr)) {
+		// dump whatever remains in the string buffer
+		getLogger().debug("%s [%d]: %s", desc, lastprint, bytestr);
+	}
 }
 
 void PacketHeaders::fill(Drive * const drive, Session * const session,

@@ -518,10 +518,10 @@ class cSEDConfig(object):
                     ('Admin1', self.keyManager.getKey(self.wwn, 'Admin1')))
 
         if configureStatus:
-            print('Band{} is configured'.format(bandNumber))
+            print('Band{BandNumber} is configured'.format(BandNumber=bandNumber))
             return False
         else:
-            print('Error configuring Band{}'.format(bandNumber))
+            print('Error configuring Band{BandNumber}'.format(BandNumber=bandNumber))
             return True
 
     #********************************************************************************
@@ -701,11 +701,11 @@ class cSEDConfig(object):
             print('Band{} RangeStart       = 0x{:x}'.format(bandNumber, info.RangeStart))
             print('Band{} RangeEnd         = 0x{:x}'.format(bandNumber, info.RangeStart + info.RangeLength))
             print('Band{} RangeLength      = 0x{:x}'.format(bandNumber, info.RangeLength))
-        print('Band{} ReadLocked       = {}'.format(bandNumber, ('unlocked','locked')[info.ReadLocked]))
-        print('Band{} WriteLocked      = {}'.format(bandNumber, ('unlocked','locked')[info.WriteLocked]))
-        print('Band{} LockOnReset      = {}'.format(bandNumber, info.LockOnReset))
-        print('Band{} ReadLockEnabled  = {}'.format(bandNumber, ('False','True')[info.ReadLockEnabled]))
-        print('Band{} WriteLockEnabled = {}'.format(bandNumber, ('False','True')[info.WriteLockEnabled]))
+            print('Band{} ReadLocked       = {}'.format(bandNumber, ('unlocked','locked')[info.ReadLocked]))
+            print('Band{} WriteLocked      = {}'.format(bandNumber, ('unlocked','locked')[info.WriteLocked]))
+            print('Band{} LockOnReset      = {}'.format(bandNumber, info.LockOnReset))
+            print('Band{} ReadLockEnabled  = {}'.format(bandNumber, ('False','True')[info.ReadLockEnabled]))
+            print('Band{} WriteLockEnabled = {}'.format(bandNumber, ('False','True')[info.WriteLockEnabled]))
         return rc
 
     #********************************************************************************

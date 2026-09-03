@@ -1,5 +1,5 @@
 requests==2.32.3
-cryptography==42.0.8
+cryptography==46.0.5
 passlib==1.7.4
 pycparser==2.20
 pyopenssl==24.2.1
